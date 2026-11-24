@@ -10,29 +10,51 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # build-installer.ps1 用 git describe 取版本；浅克隆只有 sha。
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '11.0.x'
+
+      # packaging/ 下的脚本和 Inno 脚本里都有中文；没有 BOM 时 Windows PowerShell 5.1 会按 ANSI 读，
+      # 把注释和字符串解成乱码，甚至让 here-string 提前结束。这条挡住的就是这一类回归。
+      - name: Scripts must be UTF-8 with BOM
+        shell: pwsh
+        run: |
+          $bad = Get-ChildItem -Recurse -Include *.ps1,*.iss -File |
+            Where-Object { $_.FullName -notmatch '\\(obj|bin|artifacts)\\' } |
+            Where-Object {
+              $b = [IO.File]::ReadAllBytes($_.FullName)
+              -not ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)
+            }
+          if ($bad) {
+            $bad.FullName
+            throw '缺 UTF-8 BOM：Windows PowerShell 5.1 会把中文读成乱码'
+          }
+
       - run: dotnet restore HoverTrans.slnx
       - run: dotnet build HoverTrans.slnx -c Release --no-restore
       - run: dotnet test HoverTrans.slnx -c Release --no-build
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
+
       - name: Build installer
         shell: pwsh
         # 不含 llama.cpp 运行时（-SkipRuntime）：CI 只验证安装包能打出来，发布包由 release.yml 带运行时。
-        run: ./packaging/build-installer.ps1 -SkipRuntime
+        run: |
+          Start-Transcript -Path installer-build.log
+          try { ./packaging/build-installer.ps1 -SkipRuntime } finally { Stop-Transcript }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-build-log
+          path: installer-build.log
+
       - uses: actions/upload-artifact@v4
         with:
           name: HoverTrans-installer
           path: artifacts/installer/*.exe
           if-no-files-found: error
-
-  cross-platform-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: '11.0.x'
-      - run: dotnet build HoverTrans/HoverTrans.csproj -f net11.0 -c Release

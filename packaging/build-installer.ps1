@@ -1,4 +1,4 @@
-#!/usr/bin/env powershell
+﻿#!/usr/bin/env powershell
 <#
 .SYNOPSIS
     Builds the Windows installer (HoverTrans-<version>-win-x64-setup.exe) for HoverTrans.
