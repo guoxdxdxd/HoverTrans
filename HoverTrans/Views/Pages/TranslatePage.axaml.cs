@@ -97,19 +97,40 @@ public partial class TranslatePage : UserControl
             return;
         }
 
-        var bitmap = await clipboard.TryGetBitmapAsync();
-        if (bitmap is null)
+        if (!await TrySetImageFromClipboardAsync(viewModel, clipboard))
         {
             viewModel.StatusText = "剪贴板里没有图片，先截图或复制一张图片。";
-            return;
+        }
+    }
+
+    /// <summary>
+    /// Puts the clipboard's picture (a screenshot) or image file (a picture copied in Explorer) into the page.
+    /// Returns false when the clipboard holds neither, so text still pastes as text.
+    /// </summary>
+    private static async Task<bool> TrySetImageFromClipboardAsync(TranslatePageViewModel viewModel, IClipboard clipboard)
+    {
+        var bitmap = await clipboard.TryGetBitmapAsync();
+        if (bitmap is not null)
+        {
+            using (bitmap)
+            {
+                using var buffer = new MemoryStream();
+                bitmap.Save(buffer, PngBitmapEncoderOptions.Default);
+                viewModel.SetImage(buffer.ToArray());
+            }
+
+            return true;
         }
 
-        using (bitmap)
+        var files = await clipboard.TryGetFilesAsync();
+        var image = files?.FirstOrDefault(file => IsImagePath(file.Name) || IsImagePath(file.TryGetLocalPath()));
+        if (image?.TryGetLocalPath() is { } path)
         {
-            using var buffer = new MemoryStream();
-            bitmap.Save(buffer, PngBitmapEncoderOptions.Default);
-            viewModel.SetImage(buffer.ToArray());
+            await viewModel.SetImageFileAsync(path);
+            return true;
         }
+
+        return false;
     }
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -135,25 +156,19 @@ public partial class TranslatePage : UserControl
         if (e.Key == Key.V && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-            if (clipboard is null)
+            var viewModel = ViewModel;
+            if (clipboard is null || viewModel is null)
             {
                 return;
             }
 
-            var bitmap = await clipboard.TryGetBitmapAsync();
-            if (bitmap is null)
+            // Text on the clipboard is left to the text box; only a picture or an image file is taken over.
+            if (!await TrySetImageFromClipboardAsync(viewModel, clipboard))
             {
-                // Text on the clipboard: leave it to the text box.
                 return;
             }
 
             e.Handled = true;
-            using (bitmap)
-            {
-                using var buffer = new MemoryStream();
-                bitmap.Save(buffer, PngBitmapEncoderOptions.Default);
-                ViewModel?.SetImage(buffer.ToArray());
-            }
         }
     }
 

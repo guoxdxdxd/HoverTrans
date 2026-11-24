@@ -8,6 +8,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using HoverTrans.Services;
 using HoverTrans.ViewModels;
+using System.Runtime.InteropServices;
 using TKCode.Arc;
 using TKCode.Arc.Motion;
 
@@ -48,6 +49,7 @@ public partial class HoverWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        KeepFocusWhereItIs();
 
         if (ArcTheme.State.MotionLevel != ArcMotionLevel.Full)
         {
@@ -68,6 +70,64 @@ public partial class HoverWindow : Window
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Hide();
+
+    /// <summary>
+    /// A topmost popup that appears under the pointer must never take the keyboard from the window the person is
+    /// working in: without WS_EX_NOACTIVATE, showing it activates it, and the next keystrokes (typing into the main
+    /// window, Ctrl+V, Ctrl+Enter) land in the popup instead, where nothing happens. Avalonia's ShowActivated alone
+    /// does not leave that bit on the window, so it is set here once the native window exists. Clicks still reach the
+    /// popup's own buttons; only activation is refused.
+    /// </summary>
+    private void KeepFocusWhereItIs()
+    {
+        if (!OperatingSystem.IsWindows() || TryGetPlatformHandle()?.Handle is not { } handle)
+        {
+            return;
+        }
+
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var style = GetExtendedStyle(handle);
+        if ((style & NoActivate) != 0)
+        {
+            return;
+        }
+
+        SetExtendedStyle(handle, style | NoActivate);
+    }
+
+    private const long NoActivate = 0x08000000; // WS_EX_NOACTIVATE
+    private const int ExtendedStyleIndex = -20; // GWL_EXSTYLE
+
+    private static long GetExtendedStyle(IntPtr handle) =>
+        IntPtr.Size == 8 ? GetWindowLongPtrW(handle, ExtendedStyleIndex).ToInt64() : GetWindowLongW(handle, ExtendedStyleIndex);
+
+    private static void SetExtendedStyle(IntPtr handle, long style)
+    {
+        if (IntPtr.Size == 8)
+        {
+            SetWindowLongPtrW(handle, ExtendedStyleIndex, new IntPtr(style));
+        }
+        else
+        {
+            SetWindowLongW(handle, ExtendedStyleIndex, (int)style);
+        }
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLongW(IntPtr handle, int index);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtrW(IntPtr handle, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    private static extern int SetWindowLongW(IntPtr handle, int index, int style);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr handle, int index, IntPtr style);
 
     private void OnOpenMainClick(object? sender, RoutedEventArgs e)
     {

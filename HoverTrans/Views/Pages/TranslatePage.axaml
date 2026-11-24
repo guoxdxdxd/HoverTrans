@@ -190,7 +190,7 @@
                                                TextTrimming="CharacterEllipsis"
                                                FontSize="{arc:ArcDesignTokenResource TypeSM}"
                                                Foreground="{arc:ArcDesignTokenResource Foreground}" />
-                                    <TextBlock Text="翻译时先识别图片里的文字"
+                                    <TextBlock Text="识别后自动翻译"
                                                FontSize="{arc:ArcDesignTokenResource TypeXS}"
                                                Foreground="{arc:ArcDesignTokenResource TextMuted}" />
                                 </StackPanel>

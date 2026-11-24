@@ -33,7 +33,17 @@ public sealed class HoverWindowManager : IDisposable
 
         _initialized = true;
         _hover.SnapshotChanged += OnSnapshotChanged;
+
+        // Coming back to the app means the popup has done its job: leaving it on top would cover the composer and
+        // swallow the click and the keystrokes meant for it.
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is { } main)
+        {
+            main.Activated += OnMainWindowActivated;
+        }
     }
+
+    private void OnMainWindowActivated(object? sender, EventArgs e) => _window?.Hide();
 
     public void Dispose()
     {
@@ -44,6 +54,12 @@ public sealed class HoverWindowManager : IDisposable
 
         _disposed = true;
         _hover.SnapshotChanged -= OnSnapshotChanged;
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is { } main)
+        {
+            main.Activated -= OnMainWindowActivated;
+        }
+
         _hideTimer?.Stop();
         _window?.Close();
         _window = null;

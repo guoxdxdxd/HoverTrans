@@ -119,7 +119,7 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
         TranslateCommand.Execute(null);
     }
 
-    /// <summary>Loads an image from the clipboard or a file and shows a preview.</summary>
+    /// <summary>Loads an image from the clipboard or a file, shows a preview, and starts translating it.</summary>
     public void SetImage(byte[] bytes, string? name = null)
     {
         ArgumentNullException.ThrowIfNull(bytes);
@@ -137,8 +137,15 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
         ResultText = string.Empty;
         ElapsedText = string.Empty;
         IsError = false;
-        StatusText = "图片已就绪：翻译时会先识别其中的文字。";
+        StatusText = "图片已就绪：先识别其中的文字，再翻译。";
         TranslateCommand.NotifyCanExecuteChanged();
+
+        // Pasting or dropping an image is a request to translate it: waiting for a second Ctrl+Enter made the paste
+        // look ignored, which is exactly what people reported.
+        if (TranslateCommand.CanExecute(null))
+        {
+            TranslateCommand.Execute(null);
+        }
     }
 
     /// <summary>Loads an image from a dropped file, ignoring anything that is not an image.</summary>
