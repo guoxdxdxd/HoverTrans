@@ -1,9 +1,11 @@
 ﻿; 悬译 HoverTrans —— Windows 安装包（Inno Setup 6.3+）
 ;
 
-; 构建：packaging/build-installer.ps1 会先 dotnet publish，再用 ISCC 调本脚本，并传入
-; /DAppVersion、/DPayloadDir、/DRuntimePayloadDir、/DOutputDir、/DRepoRoot 等定义。
-; 也直接在 Inno Setup IDE 里打开本文件按 F9 —— 下面的 #ifndef 默认值指向仓库内的构建产物。
+; 构建：packaging/build-installer.ps1 先 dotnet publish，再把版本与路径写进
+; packaging/installer.generated.iss，最后用 ISCC 调本脚本。
+; 不把路径放在命令行 -D 上：PowerShell 7 会重新剖析命令行的引号，带空格/中文的值传过去就成了
+; 「OutputBaseFileName is invalid」这类错误（GitHub Actions 的 shell 就是 pwsh）。
+; 也直接在 Inno Setup IDE 里打开本文件按 F9 —— 没有生成文件时下面的默认值指向仓库内的构建产物。
 ;
 ; 设计取舍（详见 packaging/README.md）：
 ;   * 按用户安装到 %LOCALAPPDATA%\Programs\HoverTrans，不需要管理员：托盘常驻的小工具不该弹 UAC。
@@ -11,6 +13,10 @@
 ;     这是应用默认查找的位置，装完即用。
 ;   * 模型 1.1 GB 不塞进安装包：体积、GitHub Release 限制、模型许可证与更新频率都不划算。
 ;     改成安装最后一步调用 deploy-model.ps1 下载 + 校验，装完即可翻译。
+
+#ifexist "installer.generated.iss"
+  #include "installer.generated.iss"
+#endif
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
@@ -32,8 +38,8 @@
   #define RepoRoot ".."
 #endif
 
-; 有 packaging\ChineseSimplified.isl 时 build-installer.ps1 会传进来，安装界面就是中文。
-; 没有就退回英文（Inno Setup 官方不附带简体中文语言文件）。
+; 生成文件里定义了 ChineseIsl 时（packaging\ChineseSimplified.isl 存在），安装界面就是中文；
+; 否则退回英文（Inno Setup 官方不附带简体中文语言文件）。
 
 [Setup]
 ; 同一个 AppId 保证升级安装复用目录并替换旧版本，不产生第二个「悬译」。

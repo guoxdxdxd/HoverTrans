@@ -179,6 +179,32 @@ function Install-RuntimePayload {
     Write-Host "    -> $runtimePayload" -ForegroundColor Green
 }
 
+function Write-InstallerDefinitions {
+    param([string]$ResolvedVersion)
+
+    # 路径和版本写进一个 ISPP 文件，而不是命令行 -D：PowerShell 7（GitHub Actions 的 shell）会把
+    # "/DName="带空格的值"" 重新剖析，引号留在值里，ISCC 就报 OutputBaseFileName is invalid。
+    $lines = @(
+        '; 由 packaging/build-installer.ps1 生成：不要手改，也不要提交（.gitignore 已忽略）。'
+        "#define AppVersion `"$ResolvedVersion`""
+        "#define PayloadDir `"$payload`""
+        "#define RuntimePayloadDir `"$runtimePayload`""
+        "#define OutputDir `"$outputDir`""
+        "#define RepoRoot `"$repoRoot`""
+    )
+    if ($SkipRuntime) { $lines += '#define NoBundledRuntime' }
+
+    $chinese = Join-Path $packagingDir 'ChineseSimplified.isl'
+    if (Test-Path -LiteralPath $chinese) { $lines += "#define ChineseIsl `"$chinese`"" }
+
+    $path = Join-Path $packagingDir 'installer.generated.iss'
+    [IO.File]::WriteAllText(
+        $path,
+        ($lines -join [Environment]::NewLine) + [Environment]::NewLine,
+        (New-Object System.Text.UTF8Encoding($true)))
+    Write-Host "    -> $path" -ForegroundColor DarkGray
+}
+
 function Invoke-Iscc {
     param([string]$ResolvedVersion)
 
@@ -186,21 +212,9 @@ function Invoke-Iscc {
     Format-Step "ISCC ($isccPath)"
 
     New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+    Write-InstallerDefinitions -ResolvedVersion $ResolvedVersion
 
-    # 值一律加引号交给 ISPP，路径里有空格或中文时不会被当成表达式解析。
-    $defines = @(
-        "/DAppVersion=`"$ResolvedVersion`"",
-        "/DPayloadDir=`"$payload`"",
-        "/DRuntimePayloadDir=`"$runtimePayload`"",
-        "/DOutputDir=`"$outputDir`"",
-        "/DRepoRoot=`"$repoRoot`""
-    )
-    if ($SkipRuntime) { $defines += '/DNoBundledRuntime' }
-
-    $chinese = Join-Path $packagingDir 'ChineseSimplified.isl'
-    if (Test-Path -LiteralPath $chinese) { $defines += "/DChineseIsl=`"$chinese`"" }
-
-    & $isccPath @defines (Join-Path $packagingDir 'installer.iss')
+    & $isccPath (Join-Path $packagingDir 'installer.iss')
     if ($LASTEXITCODE -ne 0) { throw "ISCC 失败（退出码 $LASTEXITCODE）。" }
 }
 
