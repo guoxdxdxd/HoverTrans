@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HoverTrans/HoverTrans.csproj" />
+  <Project Path="HoverTrans.Tests/HoverTrans.Tests.csproj" />
+</Solution>

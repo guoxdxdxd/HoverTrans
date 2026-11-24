@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <!-- net11.0 is the macOS/Linux build; the Windows build adds UI Automation and Windows.Media.Ocr. -->
+        <TargetFrameworks>net11.0;net11.0-windows10.0.19041.0</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+        <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">10.0.17763.0</SupportedOSPlatformVersion>
+        <!-- The .NET 11 SDK's optimized AOT publish drops Avalonia's compiled XAML ("No precompiled XAML found" at start). -->
+        <UseOptimizedPublish>false</UseOptimizedPublish>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Arc is built against this exact Avalonia version; keep every Avalonia package on it. -->
+        <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.2.0" />
+        <PackageReference Include="TKCode.Arc" Version="1.3.1" />
+        <!-- View models: [ObservableProperty] and [RelayCommand] are source-generated, so there is no reflection. -->
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.15" />
+        <PackageReference Include="TKCode.Arc.Fonts" Version="1.3.1" />
+        <!-- Only the Lucide icons the app uses are compiled in. Icons chosen at run time (bindings, data) are declared:
+             <LucideIcon Include="Bell;ArrowRight" />, or set <LucideIconsIncludeAll>true</LucideIconsIncludeAll>. -->
+        <PackageReference Include="TKCode.Arc.Icons.Lucide" Version="1.3.1" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">
+        <!-- UI Automation wrapper used by the hover text source. Windows-only. -->
+        <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+    </ItemGroup>
+</Project>

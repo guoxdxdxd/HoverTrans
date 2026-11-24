@@ -1,0 +1,221 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+             xmlns:lucide="https://github.com/AIDotNet/TKCode.Arc/lucide"
+             xmlns:vm="using:HoverTrans.ViewModels"
+             x:Class="HoverTrans.Views.MainView"
+             x:DataType="vm:MainViewModel">
+    <DockPanel>
+        <Border DockPanel.Dock="Top"
+                Height="64"
+                Padding="20,0"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                <Border Width="30"
+                        Height="30"
+                        CornerRadius="9"
+                        VerticalAlignment="Center"
+                        Background="{arc:ArcDesignTokenResource Foreground}">
+                    <lucide:LucideIcon Kind="Sparkles"
+                                       Size="15"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{arc:ArcDesignTokenResource Background}" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="悬译 HoverTrans"
+                               FontWeight="Medium"
+                               Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                    <TextBlock Text="本地 AI 翻译 · 悬停即译"
+                               FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                               Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                </StackPanel>
+                <arc:Switch Grid.Column="2"
+                            Content="悬停取词"
+                            IsChecked="{Binding HoverEnabled, Mode=TwoWay}"
+                            IsEnabled="{Binding IsHoverSupported}"
+                            VerticalAlignment="Center" />
+                <arc:ThemeSwitcher Grid.Column="3" IsIconOnly="True" />
+            </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom"
+                Height="34"
+                Padding="20,0"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}">
+            <TextBlock VerticalAlignment="Center"
+                       FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                       Text="全程本地运行：文本和图片只发给本机的 Hy-MT2 1.8B，不上传云端。" />
+        </Border>
+
+        <Grid Margin="20" ColumnDefinitions="1.05*,0.95*" ColumnSpacing="16">
+            <arc:Card>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                            <TextBlock Text="原文"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                            <ComboBox Grid.Column="2"
+                                      Width="126"
+                                      ItemsSource="{Binding SourceLanguages}"
+                                      SelectedIndex="{Binding SourceLanguageIndex, Mode=TwoWay}"
+                                      ToolTip.Tip="源语言：自动检测或手动指定" />
+                            <TextBlock Grid.Column="3" Text="→" VerticalAlignment="Center"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                            <ComboBox Grid.Column="4"
+                                      Width="126"
+                                      ItemsSource="{Binding TargetLanguages}"
+                                      SelectedIndex="{Binding TargetLanguageIndex, Mode=TwoWay}"
+                                      ToolTip.Tip="目标语言" />
+                        </Grid>
+
+                        <TextBox Text="{Binding SourceText, Mode=TwoWay}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Height="190"
+                                 VerticalContentAlignment="Top"
+                                 PlaceholderText="输入或粘贴要翻译的文字；也可以直接 Ctrl+V 粘贴图片。" />
+
+                        <Border IsVisible="{Binding HasImage}"
+                                Padding="8"
+                                CornerRadius="8"
+                                BorderThickness="1"
+                                BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Image Source="{Binding ImagePreview}"
+                                       MaxHeight="110"
+                                       Stretch="Uniform"
+                                       HorizontalAlignment="Left" />
+                                <arc:Button Grid.Column="1"
+                                            Content="移除"
+                                            Variant="Secondary"
+                                            VerticalAlignment="Bottom"
+                                            Click="OnRemoveImageClick" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <arc:Button Content="翻译"
+                                        Command="{Binding TranslateCommand}" />
+                            <arc:Button Content="取消"
+                                        Command="{Binding CancelCommand}"
+                                        Variant="Secondary"
+                                        IsVisible="{Binding IsBusy}" />
+                            <arc:Button Content="粘贴图片"
+                                        Variant="Secondary"
+                                        Click="OnPasteImageClick" />
+                            <arc:Button Content="选择图片"
+                                        Variant="Secondary"
+                                        Click="OnPickImageClick" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding StatusText}"
+                                   TextWrapping="Wrap"
+                                   FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+
+                        <TextBlock Text="{Binding OcrHint}"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding !IsOcrSupported}"
+                                   FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+
+                        <TextBlock Text="{Binding HoverHint}"
+                                   TextWrapping="Wrap"
+                                   FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+
+                        <Expander Header="设置（模型路径 / 端口 / 闲置退出）">
+                            <StackPanel Spacing="8" Margin="0,8,0,0">
+                                <TextBlock Text="llama-server 路径"
+                                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                <TextBox Text="{Binding ServerPath, Mode=TwoWay}"
+                                         PlaceholderText="%LOCALAPPDATA%\HoverTrans\runtime\llama-server.exe" />
+                                <TextBlock Text="Hy-MT2 GGUF 模型路径"
+                                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                <TextBox Text="{Binding ModelPath, Mode=TwoWay}"
+                                         PlaceholderText="%LOCALAPPDATA%\HoverTrans\models\Hy-MT2-1.8B-Q4_K_M.gguf" />
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="端口"
+                                                   FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                        <TextBox Text="{Binding PortText, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock Text="闲置退出（分钟）"
+                                                   FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                        <TextBox Text="{Binding IdleMinutesText, Mode=TwoWay}" />
+                                    </StackPanel>
+                                </Grid>
+                                <arc:Button Content="保存设置"
+                                            Command="{Binding SaveSettingsCommand}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+            </arc:Card>
+
+            <arc:Card Grid.Column="1">
+                <DockPanel LastChildFill="True">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Text="译文"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                        <arc:Button Grid.Column="1"
+                                    Content="复制"
+                                    Variant="Secondary"
+                                    IsEnabled="{Binding HasResult}"
+                                    Click="OnCopyClick" />
+                    </Grid>
+
+                    <Border DockPanel.Dock="Bottom"
+                            Margin="0,8,0,0"
+                            Padding="10,8"
+                            CornerRadius="8"
+                            BorderThickness="1"
+                            BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding ModelStatus}"
+                                           TextWrapping="Wrap"
+                                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                <TextBlock Text="模型闲置 10 分钟后自动退出。"
+                                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                            </StackPanel>
+                            <arc:Button Grid.Column="1"
+                                        Content="停止模型"
+                                        Variant="Secondary"
+                                        Command="{Binding StopModelCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="8">
+                            <SelectableTextBlock Text="{Binding ResultText}"
+                                                 IsVisible="{Binding HasResult}"
+                                                 TextWrapping="Wrap"
+                                                 FontSize="15"
+                                                 Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                            <TextBlock Text="翻译结果会显示在这里。"
+                                       IsVisible="{Binding !HasResult}"
+                                       TextWrapping="Wrap"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </arc:Card>
+        </Grid>
+    </DockPanel>
+</UserControl>

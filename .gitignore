@@ -1,0 +1,22 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+TestResults/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Local runtime and model weights (downloaded by scripts/setup-model.*)
+models/
+runtime/
+*.gguf
+
+# OS
+.DS_Store
+Thumbs.db

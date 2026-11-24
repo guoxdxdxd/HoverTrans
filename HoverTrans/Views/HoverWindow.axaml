@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+        xmlns:vm="using:HoverTrans.ViewModels"
+        x:Class="HoverTrans.Views.HoverWindow"
+        x:DataType="vm:HoverViewModel"
+        Width="440"
+        Height="240"
+        CanResize="False"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        WindowDecorations="None"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        Background="Transparent">
+    <Border Margin="6"
+            Padding="16"
+            CornerRadius="12"
+            BorderThickness="1"
+            BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}"
+            Background="{arc:ArcDesignTokenResource Background}">
+        <DockPanel LastChildFill="True">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                <TextBlock Text="悬译"
+                           FontWeight="SemiBold"
+                           Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                <TextBlock Grid.Column="1"
+                           Margin="8,0,0,0"
+                           Text="悬停翻译"
+                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                <ProgressBar Grid.Column="2"
+                             Width="48"
+                             Height="4"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding IsTranslating}" />
+            </Grid>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
+                <ProgressBar Height="3" IsIndeterminate="True" IsVisible="{Binding IsTranslating}" />
+                <TextBlock Text="{Binding Status}"
+                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                           Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding SourceText}"
+                               MaxLines="3"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                               Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                    <Border Height="1" Background="{arc:ArcDesignTokenResource BorderSubtle}" />
+                    <SelectableTextBlock Text="{Binding TranslationText}"
+                                         IsVisible="{Binding HasTranslation}"
+                                         TextWrapping="Wrap"
+                                         FontSize="15"
+                                         Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>
