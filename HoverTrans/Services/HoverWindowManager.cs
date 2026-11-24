@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using HoverTrans.ViewModels;
 using HoverTrans.Views;
@@ -57,7 +59,12 @@ public sealed class HoverWindowManager : IDisposable
             return;
         }
 
-        _window ??= new HoverWindow();
+        if (_window is null)
+        {
+            _window = new HoverWindow();
+            _window.OpenMainRequested += (_, _) => OpenMainWindow();
+        }
+
         _window.Apply(snapshot);
 
         var screen = _window.Screens.ScreenFromPoint(new PixelPoint(snapshot.X, snapshot.Y))
@@ -88,8 +95,38 @@ public sealed class HoverWindowManager : IDisposable
         timer.Tick += (_, _) =>
         {
             timer.Stop();
+
+            // The pointer resting on the popup means the person is reading, selecting or copying: stay open.
+            if (_window is { IsPointerOver: true })
+            {
+                timer.Start();
+                return;
+            }
+
             _window?.Hide();
         };
         return timer;
+    }
+
+    /// <summary>Brings the main window forward from the popup's "open main window" button.</summary>
+    private static void OpenMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+            || desktop.MainWindow is not { } main)
+        {
+            return;
+        }
+
+        if (!main.IsVisible)
+        {
+            main.Show();
+        }
+
+        if (main.WindowState == WindowState.Minimized)
+        {
+            main.WindowState = WindowState.Normal;
+        }
+
+        main.Activate();
     }
 }

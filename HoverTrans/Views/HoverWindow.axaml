@@ -48,12 +48,51 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
 
-                <ProgressBar Grid.Column="2"
-                             Width="56"
-                             Height="2"
-                             IsIndeterminate="True"
-                             IsVisible="{Binding IsTranslating}"
-                             VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <ProgressBar Width="48"
+                                 Height="2"
+                                 Margin="0,0,6,0"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsTranslating}"
+                                 VerticalAlignment="Center" />
+                    <arc:CopyButton Value="{Binding TranslationText}"
+                                    IsIconOnly="True"
+                                    Variant="Plain"
+                                    Width="26"
+                                    Height="26"
+                                    MinHeight="0"
+                                    Label="复制译文"
+                                    CopiedLabel="已复制"
+                                    FailedLabel="复制失败"
+                                    AutomationProperties.Name="复制译文"
+                                    IsVisible="{Binding HasTranslation}"
+                                    arc:Tooltip.Tip="复制译文"
+                                    arc:Tooltip.Side="Bottom" />
+                    <arc:Button Width="26"
+                                Height="26"
+                                MinHeight="0"
+                                Padding="0"
+                                CornerRadius="8"
+                                Variant="Ghost"
+                                AutomationProperties.Name="打开主窗口"
+                                arc:Tooltip.Tip="打开悬译主窗口"
+                                arc:Tooltip.Side="Bottom"
+                                Click="OnOpenMainClick">
+                        <lucide:LucideIcon Kind="ExternalLink" Size="13" />
+                    </arc:Button>
+                    <arc:Button Width="26"
+                                Height="26"
+                                MinHeight="0"
+                                Padding="0"
+                                CornerRadius="8"
+                                Variant="Ghost"
+                                AutomationProperties.Name="关闭"
+                                arc:Tooltip.Tip="关闭"
+                                arc:Tooltip.Side="Bottom"
+                                Click="OnCloseClick">
+                        <lucide:LucideIcon Kind="X" Size="13" />
+                    </arc:Button>
+                </StackPanel>
             </Grid>
 
             <StackPanel DockPanel.Dock="Bottom" Spacing="2" Margin="0,10,0,0">
@@ -69,28 +108,43 @@
                            TextWrapping="Wrap" />
             </StackPanel>
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="{Binding SourceText}"
-                               MaxLines="3"
-                               TextWrapping="Wrap"
-                               TextTrimming="CharacterEllipsis"
-                               FontSize="{arc:ArcDesignTokenResource TypeSM}"
-                               LineHeight="20"
-                               Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Grid RowDefinitions="Auto,Auto,*">
+                <TextBlock Text="{Binding SourceText}"
+                           MaxLines="3"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                           LineHeight="20"
+                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
 
-                    <Border Height="1" Background="{arc:ArcDesignTokenResource BorderSubtle}" />
+                <Border Grid.Row="1"
+                        Height="1"
+                        Margin="0,10"
+                        Background="{arc:ArcDesignTokenResource BorderSubtle}" />
 
-                    <SelectableTextBlock Text="{Binding TranslationText}"
-                                         IsVisible="{Binding HasTranslation}"
-                                         TextWrapping="Wrap"
-                                         FontSize="{arc:ArcDesignTokenResource TypeLG}"
-                                         LineHeight="27"
-                                         Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                <Grid Grid.Row="2">
+                    <!-- Read-only text box: the translation can be selected and copied like any text, with the usual
+                         right-click menu and Ctrl+C, including a part of it. It scrolls on its own when it is long. -->
+                    <TextBox Text="{Binding TranslationText, Mode=OneWay}"
+                             IsVisible="{Binding HasTranslation}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="0"
+                             MinHeight="24"
+                             FontSize="{arc:ArcDesignTokenResource TypeLG}"
+                             Foreground="{arc:ArcDesignTokenResource Foreground}"
+                             SelectionBrush="{arc:ArcDesignTokenResource AccentSubtle}"
+                             CaretBrush="Transparent"
+                             FocusAdorner="{x:Null}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
                     <arc:Skeleton Lines="2" IsVisible="{Binding IsWaiting}" Margin="0,2,0,0" />
-                </StackPanel>
-            </ScrollViewer>
+                </Grid>
+            </Grid>
         </DockPanel>
     </Border>
 </Window>

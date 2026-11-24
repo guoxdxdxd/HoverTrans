@@ -1,5 +1,9 @@
+using Avalonia.Automation;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HoverTrans.Core.History;
 using HoverTrans.Core.Languages;
 using HoverTrans.Core.Model;
@@ -151,6 +155,39 @@ public class CoreTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.True(window.IsVisible);
+
+        // The translation is a read-only text box, so a part of it can be selected and copied.
+        var translation = window.GetVisualDescendants().OfType<TextBox>().Single();
+        Assert.True(translation.IsReadOnly);
+        Assert.Equal("你好", translation.Text);
+        translation.SelectAll();
+        Assert.Equal("你好", translation.SelectedText);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Hover_window_closes_and_asks_for_the_main_window()
+    {
+        var window = new HoverWindow();
+        window.Show();
+        window.Apply(new HoverSnapshot("Hello", "你好", "翻译完成", false, false, 100, 100));
+        Dispatcher.UIThread.RunJobs();
+
+        var buttons = window.GetVisualDescendants().OfType<Button>().ToList();
+        var close = buttons.Single(button => AutomationProperties.GetName(button) == "关闭");
+        var open = buttons.Single(button => AutomationProperties.GetName(button) == "打开主窗口");
+
+        close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(window.IsVisible);
+
+        var mainWindowAsked = false;
+        window.OpenMainRequested += (_, _) => mainWindowAsked = true;
+        window.Show();
+        open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.True(mainWindowAsked);
+        Assert.False(window.IsVisible);
+
         window.Close();
     }
 

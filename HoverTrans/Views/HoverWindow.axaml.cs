@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
@@ -32,6 +33,9 @@ public partial class HoverWindow : Window
         ];
     }
 
+    /// <summary>Raised when the popup's "open main window" button is pressed.</summary>
+    public event EventHandler? OpenMainRequested;
+
     public void Apply(HoverSnapshot snapshot)
     {
         if (DataContext is HoverViewModel viewModel)
@@ -61,5 +65,13 @@ public partial class HoverWindow : Window
                 Root.RenderTransform = TransformOperations.Parse("translateY(0px)");
             },
             DispatcherPriority.Background);
+    }
+
+    private void OnCloseClick(object? sender, RoutedEventArgs e) => Hide();
+
+    private void OnOpenMainClick(object? sender, RoutedEventArgs e)
+    {
+        Hide();
+        OpenMainRequested?.Invoke(this, EventArgs.Empty);
     }
 }
