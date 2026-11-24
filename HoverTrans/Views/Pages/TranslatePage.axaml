@@ -130,6 +130,15 @@
                     <arc:SelectItem Content="马来语" Value="ms" />
                     <arc:SelectItem Content="印地语" Value="hi" />
                 </arc:Select>
+
+                <!-- Sits with the language pair because it changes what the next translation is: the same text
+                     word for word, or the sense of it. Off by default, so nothing changes for anyone who ignores it. -->
+                <arc:Checkbox Content="意译"
+                              Margin="4,0,0,0"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding IsFreeTranslation, Mode=TwoWay}"
+                              AutomationProperties.Name="意译"
+                              arc:Tooltip.Tip="勾选后按意思翻译：口语化，俚语和习语换成地道说法；不勾选按原文字面直译。" />
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">

@@ -65,6 +65,12 @@ public sealed class AppSettings
     /// <summary>Whether hover translation is on. Persisted so it survives a restart.</summary>
     public bool HoverEnabled { get; set; }
 
+    /// <summary>
+    /// Whether the translate page translates for sense (colloquial, slang-aware) instead of word for word. Kept so the
+    /// choice survives a restart; the hover popup always stays literal.
+    /// </summary>
+    public bool FreeTranslation { get; set; }
+
     /// <summary>"auto" or a language code.</summary>
     public string SourceLanguage { get; set; } = "auto";
 

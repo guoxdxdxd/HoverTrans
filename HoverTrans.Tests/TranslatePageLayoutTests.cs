@@ -87,6 +87,33 @@ public class TranslatePageLayoutTests
         Assert.Empty(plain);
     }
 
+    [AvaloniaFact]
+    public void The_free_translation_choice_sits_beside_the_language_pair()
+    {
+        var (_, viewModel, page) = ShowPage();
+
+        var checkbox = Assert.Single(page.GetVisualDescendants().OfType<TKCode.Arc.Checkbox>());
+        var selects = page.GetVisualDescendants().OfType<TKCode.Arc.Select>().ToList();
+
+        Assert.Equal("意译", checkbox.Content);
+        Assert.True(checkbox.IsVisible);
+        Assert.True(checkbox.Bounds.Width > 40, $"the checkbox is only {checkbox.Bounds.Width} px wide");
+
+        // To the right of the target language, in the same row as the language pair.
+        var target = selects[1];
+        Assert.True(checkbox.Bounds.X >= target.Bounds.X + target.Bounds.Width,
+            $"the checkbox sits at x={checkbox.Bounds.X}, the target select ends at x={target.Bounds.X + target.Bounds.Width}");
+
+        // And it is wired both ways.
+        checkbox.IsChecked = true;
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(viewModel.Translate.IsFreeTranslation);
+
+        viewModel.Translate.IsFreeTranslation = false;
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(checkbox.IsChecked);
+    }
+
     /// <summary>A pasted 200-line document must not push the page past the window: the composer keeps the height the
     /// card gives it and scrolls its own text, and the translation card scrolls too.</summary>
     [AvaloniaFact]

@@ -56,6 +56,10 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     private string _targetLanguageCode = "zh-CN";
 
+    /// <summary>Whether the next translation is for sense (意译) rather than word for word (直译).</summary>
+    [ObservableProperty]
+    private bool _isFreeTranslation;
+
     [ObservableProperty]
     private Bitmap? _imagePreview;
 
@@ -78,6 +82,7 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
         var settings = AppSettings.Current;
         _sourceLanguageCode = NormalizeSourceCode(settings.SourceLanguage);
         _targetLanguageCode = NormalizeTargetCode(settings.TargetLanguage);
+        _isFreeTranslation = settings.FreeTranslation;
     }
 
     /// <summary>Source languages: "auto" first, then every language the model handles. The page lists them in XAML so
@@ -246,7 +251,11 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
 
             var progress = new TranslationProgressSink(this);
             await _translation.TranslateAsync(
-                new TranslationRequest(SourceText.Trim(), sourceCode, targetCode),
+                new TranslationRequest(
+                    SourceText.Trim(),
+                    sourceCode,
+                    targetCode,
+                    IsFreeTranslation ? TranslationStyle.Natural : TranslationStyle.Literal),
                 progress,
                 cancellationToken);
 
@@ -309,6 +318,14 @@ public sealed partial class TranslatePageViewModel : ObservableObject, IDisposab
     partial void OnSourceLanguageCodeChanged(string value) => SaveLanguageChoice(value, TargetLanguageCode);
 
     partial void OnTargetLanguageCodeChanged(string value) => SaveLanguageChoice(SourceLanguageCode, value);
+
+    /// <summary>Remembers the choice: it is a preference, not a per-request setting.</summary>
+    partial void OnIsFreeTranslationChanged(bool value)
+    {
+        var settings = AppSettings.Current;
+        settings.FreeTranslation = value;
+        settings.Save();
+    }
 
     /// <summary>Keeps the finished text while posting every update to the UI thread, in order.</summary>
     private sealed class TranslationProgressSink(TranslatePageViewModel owner) : IProgress<TranslationProgress>

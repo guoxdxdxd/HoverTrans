@@ -64,7 +64,8 @@ public sealed class TranslationService : ITranslationService
             var prompt = TranslationPrompt.Build(
                 chunk,
                 request.SourceLanguage,
-                request.TargetLanguage);
+                request.TargetLanguage,
+                request.Style);
 
             var chunkBuilder = new StringBuilder();
             await foreach (var delta in _client

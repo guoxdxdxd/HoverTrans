@@ -38,15 +38,29 @@ POST http://127.0.0.1:18080/v1/chat/completions
 
 ## 提示词
 
-沿用 Hy-MT 系列的直译指令，不添加系统提示词：
+沿用 Hy-MT2 的指令格式（英文、语言名用全称），不添加系统提示词：一句指令 + 空行 + 原文。翻译页语言对右侧的「意译」勾选切换两种指令，同一个模型、同一套启动参数。
+
+**直译（默认，`TranslationStyle.Literal`）**
 
 ```text
-Translate the following text into Simplified Chinese, without additional explanation.
+Translate the following text into Simplified Chinese. Note that you should only output the translated result without any additional explanation.
 
 <source text>
 ```
 
-手动指定源语言时会写成 `Translate the following English text into ...`。目标语言用英文名（`Simplified Chinese`、`Traditional Chinese`、`Japanese` 等），由 `LanguageCatalog` 映射。
+**意译（勾选「意译」，`TranslationStyle.Natural`）**
+
+Hy-MT2 支持用方括号里的风格子句控制语域，意译就是在这条指令上加一句风格：
+
+```text
+Translate the following text into Simplified Chinese. Note that the translation style must strictly conform to [colloquial, natural everyday speech: keep the speaker's tone and force, and render slang, idioms and wordplay with their established equivalents instead of word-for-word literals], and that you should only output the translated result without any additional explanation.
+
+<source text>
+```
+
+- 手动指定源语言时写成 `Translate the following English text into ...`；目标语言用英文全称（`Simplified Chinese`、`Traditional Chinese`、`Japanese` 等），由 `LanguageCatalog` 映射。
+- 勾选状态存在 `settings.json` 的 `FreeTranslation`，重启后保留；悬停浮窗固定直译，避免取词时为了"顺"而加戏。
+- 意译更容易多出解释或把意思放大：验收看三条——意思准、没有额外解释、长度没有异常膨胀。
 
 ## 性能参考
 

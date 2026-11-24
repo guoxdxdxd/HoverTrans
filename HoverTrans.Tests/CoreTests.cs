@@ -66,6 +66,36 @@ public class CoreTests
     }
 
     [Fact]
+    public void Prompt_asks_for_the_translation_alone_in_the_literal_mode()
+    {
+        var prompt = TranslationPrompt.Build("Hello", null, "zh-CN");
+
+        Assert.StartsWith("Translate the following text into Simplified Chinese.", prompt);
+        Assert.Contains("only output the translated result without any additional explanation", prompt);
+        Assert.DoesNotContain("style must strictly conform to", prompt);
+        Assert.EndsWith("\n\nHello", prompt);
+    }
+
+    [Fact]
+    public void Prompt_states_the_style_in_the_free_translation_mode()
+    {
+        var prompt = TranslationPrompt.Build("That's sick, bro.", null, "zh-CN", TranslationStyle.Natural);
+
+        Assert.StartsWith("Translate the following text into Simplified Chinese.", prompt);
+        Assert.Contains("translation style must strictly conform to [", prompt);
+        Assert.Contains("slang", prompt);
+        Assert.Contains("only output the translated result without any additional explanation", prompt);
+    }
+
+    [Fact]
+    public void Prompt_names_the_source_language_when_one_is_given()
+    {
+        var prompt = TranslationPrompt.Build("Hola", "es", "zh-CN");
+
+        Assert.StartsWith("Translate the following Spanish text into Simplified Chinese.", prompt);
+    }
+
+    [Fact]
     public void Model_defaults_to_ten_minutes_idle()
     {
         var options = new LlamaServerOptions("server", "model");
@@ -95,6 +125,25 @@ public class CoreTests
         var entry = Assert.Single(store.Load());
         Assert.Equal("Hello", entry.SourceText);
         Assert.Equal("你好", entry.ResultText);
+    }
+
+    /// <summary>The 意译 checkbox has to change what the pipeline is asked for, not only what the checkbox shows.</summary>
+    [AvaloniaFact]
+    public async Task Free_translation_choice_reaches_the_translation_request()
+    {
+        var translation = new FakeTranslationService();
+        var viewModel = new TranslatePageViewModel(translation, new FakeOcrService(), NewHistoryStore())
+        {
+            SourceText = "That's sick, bro."
+        };
+
+        // Default: word for word, so nothing changes for anyone who ignores the checkbox.
+        await viewModel.TranslateCommand.ExecuteAsync(null);
+        Assert.Equal(TranslationStyle.Literal, translation.LastRequest!.Style);
+
+        viewModel.IsFreeTranslation = true;
+        await viewModel.TranslateCommand.ExecuteAsync(null);
+        Assert.Equal(TranslationStyle.Natural, translation.LastRequest!.Style);
     }
 
     [Fact]
@@ -197,11 +246,15 @@ public class CoreTests
 
         public bool IsModelRunning => true;
 
+        /// <summary>The last request the page sent, so tests can check what it asked for.</summary>
+        public TranslationRequest? LastRequest { get; private set; }
+
         public Task TranslateAsync(
             TranslationRequest request,
             IProgress<TranslationProgress>? progress,
             CancellationToken cancellationToken)
         {
+            LastRequest = request;
             Assert.Equal("zh-CN", request.TargetLanguage);
             progress?.Report(TranslationProgress.Delta("你好"));
             progress?.Report(TranslationProgress.Completed("你好"));
