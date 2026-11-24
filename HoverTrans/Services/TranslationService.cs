@@ -68,7 +68,7 @@ public sealed class TranslationService : ITranslationService
 
             var chunkBuilder = new StringBuilder();
             await foreach (var delta in _client
-                               .StreamAsync(_server.BaseUrl, prompt, cancellationToken)
+                               .StreamAsync(_server.BaseUrl, _server.ApiKey, prompt, cancellationToken)
                                .ConfigureAwait(false))
             {
                 chunkBuilder.Append(delta);

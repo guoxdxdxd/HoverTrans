@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using HoverTrans.Core.Platform;
 
 namespace HoverTrans.Core.Model;
@@ -25,6 +27,7 @@ public sealed class LlamaServerManager : IAsyncDisposable
     private int _activeRequests;
     private LlamaServerState _state = LlamaServerState.Stopped;
     private string? _lastError;
+    private string? _apiKey;
     private bool _disposed;
 
     public LlamaServerManager(LlamaServerOptions options)
@@ -37,6 +40,12 @@ public sealed class LlamaServerManager : IAsyncDisposable
     public LlamaServerState State => _state;
 
     public string? LastError => _lastError;
+
+    /// <summary>
+    /// The key llama-server was started with, or null when it is not running. It is generated per start so another
+    /// local process cannot use the model for free; the app sends it on every request.
+    /// </summary>
+    public string? ApiKey => _apiKey;
 
     public LlamaServerOptions Options => _options;
 
@@ -192,6 +201,10 @@ public sealed class LlamaServerManager : IAsyncDisposable
 
     private void StartProcess()
     {
+        // A key per start: the server only listens on the loopback interface, but without one any other local
+        // process could drive the model. It stays in memory and is sent on every request and health check.
+        _apiKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
+
         var workingDirectory = Path.GetDirectoryName(_options.ServerPath);
         var startInfo = new ProcessStartInfo
         {
@@ -211,6 +224,8 @@ public sealed class LlamaServerManager : IAsyncDisposable
         startInfo.ArgumentList.Add("127.0.0.1");
         startInfo.ArgumentList.Add("--port");
         startInfo.ArgumentList.Add(_options.Port.ToString(CultureInfo.InvariantCulture));
+        startInfo.ArgumentList.Add("--api-key");
+        startInfo.ArgumentList.Add(_apiKey);
         startInfo.ArgumentList.Add("--ctx-size");
         startInfo.ArgumentList.Add(_options.ContextSize.ToString(CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add("--parallel");
@@ -238,11 +253,15 @@ public sealed class LlamaServerManager : IAsyncDisposable
         process.ErrorDataReceived += (_, e) => LogLine(e.Data);
         process.Exited += (_, _) =>
         {
-            LogLine($"llama-server exited with code {SafeExitCode(process)}");
-            if (_state == LlamaServerState.Running)
+            // A stop we asked for sets Stopping first and logs its own line, and it disposes the process, so the exit
+            // code is gone by then (that used to be logged as a misleading -1). Only a crash deserves a line here.
+            if (_state != LlamaServerState.Running)
             {
-                SetState(LlamaServerState.Stopped);
+                return;
             }
+
+            LogLine($"llama-server exited unexpectedly with code {SafeExitCode(process)}");
+            SetState(LlamaServerState.Stopped);
         };
 
         if (!process.Start())
@@ -273,7 +292,13 @@ public sealed class LlamaServerManager : IAsyncDisposable
 
             try
             {
-                using var response = await HealthClient.GetAsync(healthUrl, cancellationToken).ConfigureAwait(false);
+                using var request = new HttpRequestMessage(HttpMethod.Get, healthUrl);
+                if (_apiKey is { Length: > 0 } key)
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                }
+
+                using var response = await HealthClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
                     return;
@@ -355,6 +380,7 @@ public sealed class LlamaServerManager : IAsyncDisposable
 
         var process = _process;
         _process = null;
+        _apiKey = null;
         _state = LlamaServerState.Stopping;
 
         if (process is not null)
@@ -377,9 +403,12 @@ public sealed class LlamaServerManager : IAsyncDisposable
             {
                 process.Dispose();
             }
+
+            // Only a stop that actually had a process is worth a line: this used to be logged on every app exit,
+            // even when the model was never started.
+            LogLine("llama-server stopped");
         }
 
-        LogLine("llama-server stopped");
         SetState(LlamaServerState.Stopped);
     }
 

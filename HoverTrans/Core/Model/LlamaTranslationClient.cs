@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -12,6 +13,7 @@ public sealed class LlamaTranslationClient
 
     public async IAsyncEnumerable<string> StreamAsync(
         string baseUrl,
+        string? apiKey,
         string prompt,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -35,6 +37,12 @@ public sealed class LlamaTranslationClient
                 "application/json")
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
+
+        // llama-server runs with a per-start --api-key, so another local process cannot use the model.
+        if (apiKey is { Length: > 0 })
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
 
         using var response = await _http
             .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
