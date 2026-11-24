@@ -8,15 +8,21 @@
     <UserControl.Styles>
         <!-- A borderless composer: the card is the field, so the text sits on the surface and breathes. It is Arc's
              text field, not Avalonia's TextBox: the Arc theme ships no ControlTheme for TextBox, so a plain one would
-             take keystrokes and render absolutely nothing. -->
+             take keystrokes and render absolutely nothing. MinLines/MaxLines make it grow with the text up to a
+             ceiling and then scroll inside itself (MaxHeight alone only clips it), so a pasted 200-line document
+             cannot push the page past the window. -->
         <Style Selector="arc|Textarea.composer">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="MinHeight" Value="120" />
-            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="MinLines" Value="4" />
+            <Setter Property="MaxLines" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="IsLabelVisible" Value="False" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
             <Setter Property="FontSize" Value="{arc:ArcDesignTokenResource TypeLG}" />
             <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
             <Setter Property="CaretBrush" Value="{arc:ArcDesignTokenResource Accent}" />
@@ -340,10 +346,14 @@
 
                     <Grid Margin="18,0,18,0">
                         <!-- Selectable text: the translation can be selected and copied like any text, with Ctrl+C or
-                             the right-click menu, including a part of it. -->
-                        <SelectableTextBlock Classes="result"
-                                             Text="{Binding ResultText}"
-                                             IsVisible="{Binding HasResult}" />
+                             the right-click menu, including a part of it. It scrolls inside the card, so a long
+                             translation never grows the page. -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding HasResult}">
+                            <SelectableTextBlock Classes="result"
+                                                 Text="{Binding ResultText}" />
+                        </ScrollViewer>
 
                         <arc:Skeleton Lines="6"
                                       IsVisible="{Binding IsWaitingFirstToken}"

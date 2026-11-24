@@ -36,13 +36,15 @@ public class TranslatePageLayoutTests
     }
 
     [AvaloniaFact]
-    public void The_composer_is_a_rendered_field_that_fills_the_card()
+    public void The_composer_is_a_rendered_field_a_person_can_type_in()
     {
         var (_, _, page) = ShowPage();
         var composer = Assert.Single(page.GetVisualDescendants().OfType<TKCode.Arc.Textarea>());
 
-        Assert.True(composer.Classes.Contains("composer"));
-        Assert.NotEmpty(composer.GetVisualDescendants().OfType<TextPresenter>());        Assert.True(composer.Bounds.Height > 200, $"the composer is only {composer.Bounds.Height} px tall");
+        Assert.Contains("composer", composer.Classes);
+        Assert.NotEmpty(composer.GetVisualDescendants().OfType<TextPresenter>());
+        Assert.True(composer.Bounds.Height >= 100, $"the composer is only {composer.Bounds.Height} px tall");
+        Assert.True(composer.Bounds.Height <= 340, $"the composer is {composer.Bounds.Height} px tall with no text");
         Assert.True(composer.Bounds.Width > 200, $"the composer is only {composer.Bounds.Width} px wide");
     }
 
@@ -78,5 +80,36 @@ public class TranslatePageLayoutTests
             .ToList();
 
         Assert.Empty(plain);
+    }
+
+    /// <summary>A pasted 200-line document must not push the page past the window: the composer stops growing at its
+    /// max lines and scrolls inside itself, and so does the translation card.</summary>
+    [AvaloniaFact]
+    public void A_very_long_text_scrolls_inside_the_cards_instead_of_growing_the_page()
+    {
+        var (window, viewModel, page) = ShowPage();
+        var composer = Assert.Single(page.GetVisualDescendants().OfType<TKCode.Arc.Textarea>());
+
+        var oneLine = composer.Bounds.Height;
+        Assert.True(oneLine <= 160, $"an empty composer is already {oneLine} px tall");
+
+        var longText = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"Line {i}: the quick brown fox."));
+        viewModel.Translate.SourceText = longText;
+        viewModel.Translate.ResultText = longText;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(composer.Bounds.Height > oneLine, "the composer did not grow with the text");
+        Assert.True(composer.Bounds.Height <= 340, $"the composer grew to {composer.Bounds.Height} px");
+        Assert.True(page.Bounds.Height <= window.ClientSize.Height,
+            $"the page is {page.Bounds.Height} px tall in a {window.ClientSize.Height} px window");
+
+        var composerScroll = Assert.Single(composer.GetVisualDescendants().OfType<ScrollViewer>());
+        Assert.True(composerScroll.Extent.Height > composerScroll.Viewport.Height + 100,
+            "the composer does not scroll its own text");
+
+        var result = Assert.Single(page.GetVisualDescendants().OfType<SelectableTextBlock>(), block => block.Classes.Contains("result"));
+        var resultScroll = Assert.Single(result.GetVisualAncestors().OfType<ScrollViewer>());
+        Assert.True(resultScroll.Extent.Height > resultScroll.Viewport.Height + 100,
+            "the translation card does not scroll its own text");
     }
 }
