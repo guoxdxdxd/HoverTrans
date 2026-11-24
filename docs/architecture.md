@@ -1,4 +1,4 @@
-# 架构与关键流程
+﻿# 架构与关键流程
 
 ## 目标
 
@@ -8,7 +8,7 @@
 
 | 层 | 位置 | 职责 |
 | --- | --- | --- |
-| Core | `HoverTrans/Core` | 语言检测、分段、提示词、llama-server 生命周期、OpenAI 兼容客户端、翻译历史存储。不依赖 Avalonia。 |
+| Core | `HoverTrans/Core` | 语言检测、分段、提示词、llama-server 生命周期、OpenAI 兼容客户端、翻译历史存储、版本比较与 GitHub 更新检查。不依赖 Avalonia。 |
 | Services | `HoverTrans/Services` | `TranslationService` 编排；`HoverTranslationService` 轮询悬停；`HoverWindowManager` 显示浮窗。 |
 | Platform | `HoverTrans/Platform` | `IOcrService`、`IHoverTextSource` 抽象；Windows 用 UIA3 + Windows.Media.Ocr；其他平台 `Null*`。 |
 | UI | `HoverTrans/Views`、`ViewModels`、`Navigation` | Avalonia 12 + TKCode.Arc；侧栏导航的翻译 / 历史 / 设置三页、应用级状态、悬停浮窗。界面设计见 [ui.md](ui.md)。 |
@@ -49,6 +49,15 @@ TranslationService.TranslateAsync
 - 空闲退出：后台每 5 秒检查 `_activeRequests == 0 && now - lastActivity >= IdleTimeout`，满足才停。
 - 停止：`Kill(entireProcessTree: true)`，最多等 10 秒；下次翻译重新启动。
 - 日志：`%LOCALAPPDATA%\HoverTrans\logs\llama-server.log`，只记录进程输出。
+
+## 检查更新
+
+- GitHubUpdateChecker 读 `GET /repos/guoxdxdxd/HoverTrans/releases/latest`（未认证；每小时 60 次/IP 足够点按），
+  用 `SemanticVersion` 与 `AppVersion.Current` 比较：**草稿和预发布不提示**，tag 解析不出来算检查失败而不是新版本。
+- 失败分三类回给界面：连不上（Network）、限流（RateLimited）、GitHub 返回异常或内容看不懂（HttpError / BadResponse）；
+  只有用户主动点「检查更新」才发请求，启动时不联网。
+- 应用版本来自 `<Version>`（`packaging/build-installer.ps1` 用 tag 的数字部分注入，见 [../packaging/README.md](../packaging/README.md)），
+  所以「已是最新」有具体版本号可比。
 
 ## 线程模型
 

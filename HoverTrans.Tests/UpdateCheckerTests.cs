@@ -1,8 +1,12 @@
 using System.Net;
 using System.Net.Http;
+using Avalonia.Automation;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using HoverTrans.Core.Updates;
 using HoverTrans.ViewModels;
+using HoverTrans.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -230,6 +234,25 @@ public class UpdateCheckerTests
         Assert.False(viewModel.HasUpdate);
         Assert.True(viewModel.IsUpdateError);
         Assert.Contains("连不上 GitHub", viewModel.UpdateHint);
+    }
+
+    [AvaloniaFact]
+    public void The_settings_page_shows_a_check_for_updates_row()
+    {
+        var window = new Views.MainWindow { DataContext = App.Services.GetRequiredService<MainViewModel>() };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var main = Assert.IsType<MainViewModel>(window.DataContext);
+        main.SelectedKey = "settings";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var page = Assert.IsType<Views.Pages.SettingsPage>(main.CurrentPageView);
+        var labels = page.GetVisualDescendants().OfType<Avalonia.Controls.Button>()
+            .Select(Avalonia.Automation.AutomationProperties.GetName)
+            .ToList();
+
+        Assert.Contains("检查更新", labels);
     }
 
     // ---------- helpers ----------
