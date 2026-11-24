@@ -8,17 +8,15 @@
     <UserControl.Styles>
         <!-- A borderless composer: the card is the field, so the text sits on the surface and breathes. It is Arc's
              text field, not Avalonia's TextBox: the Arc theme ships no ControlTheme for TextBox, so a plain one would
-             take keystrokes and render absolutely nothing. MinLines/MaxLines make it grow with the text up to a
-             ceiling and then scroll inside itself (MaxHeight alone only clips it), so a pasted 200-line document
-             cannot push the page past the window. -->
+             take keystrokes and render absolutely nothing. The field fills the space the card leaves for it down to
+             the action row (FrameHeight is set from the code-behind as the card resizes): Arc's text field only
+             scrolls its own text when it is given a height, and MaxHeight alone just clips it. -->
         <Style Selector="arc|Textarea.composer">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="MinHeight" Value="120" />
-            <Setter Property="MinLines" Value="4" />
-            <Setter Property="MaxLines" Value="12" />
-            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="IsLabelVisible" Value="False" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
@@ -249,10 +247,14 @@
                             </StackPanel>
                         </Grid>
 
-                        <arc:Textarea Classes="composer"
-                                      Margin="18,0,18,0"
-                                      Text="{Binding SourceText, Mode=TwoWay}"
-                                      Placeholder="输入或粘贴要翻译的文字，或把一张图片拖到这里…" />
+                        <!-- The field fills whatever the header, the image strip and the action row leave over, so
+                             there is no dead space under it and long text scrolls inside it. -->
+                        <Border x:Name="ComposerHost" Margin="18,0,18,0" ClipToBounds="True">
+                            <arc:Textarea x:Name="Composer"
+                                          Classes="composer"
+                                          Text="{Binding SourceText, Mode=TwoWay}"
+                                          Placeholder="输入或粘贴要翻译的文字，或把一张图片拖到这里…" />
+                        </Border>
                     </DockPanel>
 
                     <Border x:Name="DropHint"

@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Transformation;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using HoverTrans.ViewModels;
 
 namespace HoverTrans.Views.Pages;
@@ -42,6 +43,33 @@ public partial class TranslatePage : UserControl
                 Easing = new CubicEaseOut()
             }
         };
+
+        // The field takes the height the card leaves for it, and keeps it as the window resizes. Arc's text field
+        // sizes its inner scroll area from its own height (MaxLines/FrameHeight); leaving that to the layout clips the
+        // text instead of scrolling it, and a fixed MaxLines leaves dead space under the field.
+        Loaded += (_, _) => FitComposer();
+        ComposerHost.SizeChanged += (_, _) => FitComposer();
+        Composer.TextChanged += (_, _) => FitComposer();
+    }
+
+    /// <summary>Gives the composer exactly the room the card has for it, so long text scrolls and no gap is left.</summary>
+    private void FitComposer()
+    {
+        var height = ComposerHost.Bounds.Height;
+        if (height <= 0)
+        {
+            // First frame: the host is not measured yet, so try again once the layout pass has run.
+            Avalonia.Threading.Dispatcher.UIThread.Post(FitComposer, Avalonia.Threading.DispatcherPriority.Loaded);
+            return;
+        }
+
+        // The frame is the field itself: a hair less than the host keeps a rounding pixel from pushing the action row.
+        // NaN means "not sized yet" (the default), and NaN compares false, so it has to be checked explicitly.
+        var frame = Math.Max(Composer.MinHeight, Math.Floor(height) - 1);
+        if (double.IsNaN(Composer.FrameHeight) || Math.Abs(Composer.FrameHeight - frame) > 0.5)
+        {
+            Composer.FrameHeight = frame;
+        }
     }
 
     private TranslatePageViewModel? ViewModel => DataContext as TranslatePageViewModel;

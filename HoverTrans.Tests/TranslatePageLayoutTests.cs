@@ -36,16 +36,21 @@ public class TranslatePageLayoutTests
     }
 
     [AvaloniaFact]
-    public void The_composer_is_a_rendered_field_a_person_can_type_in()
+    public void The_composer_is_a_rendered_field_that_fills_the_card()
     {
-        var (_, _, page) = ShowPage();
+        var (window, _, page) = ShowPage();
         var composer = Assert.Single(page.GetVisualDescendants().OfType<TKCode.Arc.Textarea>());
 
         Assert.Contains("composer", composer.Classes);
         Assert.NotEmpty(composer.GetVisualDescendants().OfType<TextPresenter>());
-        Assert.True(composer.Bounds.Height >= 100, $"the composer is only {composer.Bounds.Height} px tall");
-        Assert.True(composer.Bounds.Height <= 340, $"the composer is {composer.Bounds.Height} px tall with no text");
+        Assert.True(composer.Bounds.Height > 300, $"the composer is only {composer.Bounds.Height} px tall");
+        Assert.True(composer.Bounds.Height < page.Bounds.Height, "the composer is taller than the page");
         Assert.True(composer.Bounds.Width > 200, $"the composer is only {composer.Bounds.Width} px wide");
+
+        // No dead space: the field ends where the action row begins.
+        var host = Assert.Single(page.GetVisualDescendants().OfType<Border>(), border => border.Name == "ComposerHost");
+        Assert.True(Math.Abs(host.Bounds.Height - composer.Bounds.Height) < 2,
+            $"the composer is {composer.Bounds.Height} px in a {host.Bounds.Height} px host");
     }
 
     [AvaloniaFact]
@@ -82,24 +87,22 @@ public class TranslatePageLayoutTests
         Assert.Empty(plain);
     }
 
-    /// <summary>A pasted 200-line document must not push the page past the window: the composer stops growing at its
-    /// max lines and scrolls inside itself, and so does the translation card.</summary>
+    /// <summary>A pasted 200-line document must not push the page past the window: the composer keeps the height the
+    /// card gives it and scrolls its own text, and the translation card scrolls too.</summary>
     [AvaloniaFact]
     public void A_very_long_text_scrolls_inside_the_cards_instead_of_growing_the_page()
     {
         var (window, viewModel, page) = ShowPage();
         var composer = Assert.Single(page.GetVisualDescendants().OfType<TKCode.Arc.Textarea>());
-
-        var oneLine = composer.Bounds.Height;
-        Assert.True(oneLine <= 160, $"an empty composer is already {oneLine} px tall");
+        var heightWithNoText = composer.Bounds.Height;
 
         var longText = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"Line {i}: the quick brown fox."));
         viewModel.Translate.SourceText = longText;
         viewModel.Translate.ResultText = longText;
         Dispatcher.UIThread.RunJobs();
 
-        Assert.True(composer.Bounds.Height > oneLine, "the composer did not grow with the text");
-        Assert.True(composer.Bounds.Height <= 340, $"the composer grew to {composer.Bounds.Height} px");
+        Assert.True(Math.Abs(composer.Bounds.Height - heightWithNoText) < 2,
+            $"the composer grew from {heightWithNoText} to {composer.Bounds.Height} px");
         Assert.True(page.Bounds.Height <= window.ClientSize.Height,
             $"the page is {page.Bounds.Height} px tall in a {window.ClientSize.Height} px window");
 
