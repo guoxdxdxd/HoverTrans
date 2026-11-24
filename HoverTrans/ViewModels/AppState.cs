@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
+using HoverTrans.Core.Updates;
 using HoverTrans.Services;
 using HoverTrans.Settings;
 
@@ -37,7 +38,7 @@ public sealed partial class AppState : ObservableObject
         HoverHint = hover.IsSupported
             ? "把鼠标停在外文上约半秒，就会在旁边弹出译文。"
             : hover.UnsupportedMessage;
-        Version = typeof(AppState).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        Version = AppVersion.Display;
         _modelStatus = translation.StatusText;
 
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };

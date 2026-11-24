@@ -13,6 +13,7 @@ Windows 优先、兼容 macOS 的本地 AI 翻译工具：鼠标悬停在外文�
 - **本地模型生命周期**：第一次翻译才启动 `llama-server`；连续 10 分钟没有翻译请求自动退出，避免常驻内存。
 - **流式结果**：译文边生成边显示，可取消、可复制。
 - **主题**：跟随系统的明暗主题，Arc 组件库的动效与设计令牌。
+- **检查更新**：设置页「检查更新」直接读 GitHub 最新 release，比当前版本新就提示，并可一键打开下载页（[`guoxdxdxd/HoverTrans`](https://github.com/guoxdxdxd/HoverTrans)）。
 
 ## 快速开始（Windows）
 
@@ -115,6 +116,18 @@ pwsh -File ./packaging/build-installer.ps1    # -> artifacts\installer\HoverTran
 `%LOCALAPPDATA%\HoverTrans\runtime`；模型（1.1 GB）不进安装包，由安装最后一步调用
 `packaging\deploy-model.ps1` 下载并校验到 `%LOCALAPPDATA%\HoverTrans\models`，装完即可翻译。
 卸载保留模型和设置。细节、静默安装参数、冒烟测试清单见 [packaging/README.md](packaging/README.md)。
+
+### 发布一个新版本
+
+```powershell
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+打 tag 会触发 `.github/workflows/release.yml`：Windows 上打包出安装包、挂到 GitHub Release（直接发布，不是草稿）。
+应用内的「检查更新」读的是 `releases/latest`，所以草稿版本它看不见——要让人升级，就得真的发出去。
+
+构建时会用 `-p:Version` 把 tag 的数字版本写进应用（`v0.2.0` → `0.2.0`，`git describe` 的
+`0.2.0-11-g778f5aa` 也只取 `0.2.0`），否则应用报的版本永远和 tag 对不上，更新检查就永远说「已是最新」。
 
 ## 已知限制
 

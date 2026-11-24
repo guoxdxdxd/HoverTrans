@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env powershell
+#!/usr/bin/env powershell
 <#
 .SYNOPSIS
     Builds the Windows installer (HoverTrans-<version>-win-x64-setup.exe) for HoverTrans.
@@ -112,9 +112,13 @@ function Resolve-Iscc {
 }
 
 function Invoke-Publish {
-    Format-Step "dotnet publish (win-x64, self-contained, single file)"
+    param([string]$PublishVersion)
+
+    Format-Step "dotnet publish (win-x64, self-contained, single file, 版本 $PublishVersion)"
     if (Test-Path -LiteralPath $payload) { Remove-Item -LiteralPath $payload -Recurse -Force }
 
+    # -p:Version 进的是应用自己的版本号；「检查更新」拿它和 GitHub 上最新 release 的 tag 比，
+    # 所以这里必须是干净的 0.1.0，不能是 git describe 的 0.1.0-11-g778f5aa。
     & dotnet publish (Join-Path $repoRoot 'HoverTrans\HoverTrans.csproj') `
         -f net11.0-windows10.0.19041.0 `
         -c Release `
@@ -123,6 +127,7 @@ function Invoke-Publish {
         -p:PublishSingleFile=true `
         -p:DebugType=None `
         -p:DebugSymbols=false `
+        -p:Version=$PublishVersion `
         -o $payload
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish 失败（退出码 $LASTEXITCODE）。" }
 
@@ -200,9 +205,11 @@ function Invoke-Iscc {
 }
 
 $resolvedVersion = Resolve-Version
-Write-Host "悬译 HoverTrans 安装包构建 · 版本 $resolvedVersion" -ForegroundColor White
+# 应用自己的版本号取 tag 的三段数字：v0.2.0 和 0.2.0-11-g778f5aa 都出 0.2.0，更新检查才比得准。
+$publishVersion = if ($resolvedVersion -match '^(\d+\.\d+\.\d+)') { $Matches[1] } else { '0.1.0' }
+Write-Host "悬译 HoverTrans 安装包构建 · 版本 $resolvedVersion（应用内版本 $publishVersion）" -ForegroundColor White
 
-if (-not $SkipPublish) { Invoke-Publish }
+if (-not $SkipPublish) { Invoke-Publish -PublishVersion $publishVersion }
 elseif (-not (Test-Path -LiteralPath (Join-Path $payload 'HoverTrans.exe'))) {
     throw "跳过了发布，但 $payload 里没有 HoverTrans.exe。"
 }

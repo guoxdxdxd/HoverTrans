@@ -2,6 +2,7 @@ using HoverTrans.Core.History;
 using HoverTrans.Core.Model;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
+using HoverTrans.Core.Updates;
 using HoverTrans.Navigation;
 using HoverTrans.Platform;
 using HoverTrans.Settings;
@@ -23,8 +24,9 @@ public static class AppServices
     /// <summary>
     /// Builds the container. <paramref name="history"/> is where the history page reads and writes: the default file,
     /// or a temporary file for tests and screenshots that must not touch the person's own app data.
+    /// <paramref name="updates"/> replaces the GitHub check in tests, so no test opens a socket.
     /// </summary>
-    public static IServiceProvider Build(HistoryStore? history = null)
+    public static IServiceProvider Build(HistoryStore? history = null, IUpdateChecker? updates = null)
     {
         var services = new ServiceCollection();
         var settings = AppSettings.Current;
@@ -40,6 +42,11 @@ public static class AppServices
         services.AddSingleton<LlamaServerManager>();
         services.AddSingleton<LlamaTranslationClient>();
         services.AddSingleton<ITranslationService, TranslationService>();
+
+        // One client for the update check: no cookies, a timeout the person would not sit through.
+        services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromSeconds(12) });
+        services.AddSingleton<IUpdateChecker>(provider =>
+            updates ?? new GitHubUpdateChecker(provider.GetRequiredService<HttpClient>()));
 
 #if WINDOWS
         services.AddSingleton<IOcrService, WindowsOcrService>();

@@ -145,6 +145,18 @@
                                    FontSize="{arc:ArcDesignTokenResource TypeSM}"
                                    Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
                     </arc:SettingsRow>
+                    <arc:SettingsRow Header="检查更新" Description="{Binding UpdateHint}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <arc:Button Content="检查更新"
+                                        Variant="Secondary"
+                                        Command="{Binding CheckUpdateCommand}"
+                                        AutomationProperties.Name="检查更新" />
+                            <arc:Button Content="下载更新"
+                                        Command="{Binding OpenUpdateCommand}"
+                                        IsVisible="{Binding HasUpdate}"
+                                        AutomationProperties.Name="下载更新" />
+                        </StackPanel>
+                    </arc:SettingsRow>
                     <arc:SettingsRow Header="数据目录" Description="{Binding DataDirectory}">
                         <arc:Button Content="打开文件夹"
                                     Variant="Secondary"

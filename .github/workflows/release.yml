@@ -5,6 +5,10 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# softprops/action-gh-release 要写 Release，否则用的是只读的默认 token。
+permissions:
+  contents: write
+
 jobs:
   installer:
     runs-on: windows-latest
@@ -31,5 +35,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/installer/*.exe
-          draft: true
+          # 直接发布，不留在草稿里：应用的「检查更新」读的是 latest release，草稿它看不见。
+          draft: false
           generate_release_notes: true

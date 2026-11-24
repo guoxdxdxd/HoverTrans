@@ -1,9 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
+using HoverTrans.Core.Updates;
 using HoverTrans.Settings;
 using TKCode.Arc;
 using TKCode.Arc.Motion;
@@ -17,6 +18,8 @@ namespace HoverTrans.ViewModels;
 public sealed partial class SettingsPageViewModel : ObservableObject
 {
     private readonly ITranslationService _translation;
+    private readonly IUpdateChecker _updates;
+    private Uri? _updateUrl;
     private bool _syncing;
 
     [ObservableProperty]
@@ -61,9 +64,23 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _serverFileExists;
 
-    public SettingsPageViewModel(ITranslationService translation, AppState state)
+    [ObservableProperty]
+    private string _updateHint = "点「检查更新」到 GitHub 看有没有新版本。";
+
+    [ObservableProperty]
+    private bool _isUpdateError;
+
+    [ObservableProperty]
+    private bool _hasUpdate;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckUpdateCommand))]
+    private bool _isCheckingUpdate;
+
+    public SettingsPageViewModel(ITranslationService translation, AppState state, IUpdateChecker updates)
     {
         _translation = translation;
+        _updates = updates;
         State = state;
 
         var settings = AppSettings.Current;
@@ -97,6 +114,12 @@ public sealed partial class SettingsPageViewModel : ObservableObject
 
     /// <summary>Whether the stop button can do anything.</summary>
     public bool CanStopModel => State.IsModelRunning;
+
+    /// <summary>Whether the update button can run; greyed out while a check is in flight.</summary>
+    public bool CanCheckUpdate => !IsCheckingUpdate;
+
+    /// <summary>The version this build reports, so "已是最新" has a number next to it.</summary>
+    public string CurrentVersion => AppVersion.Display;
 
     /// <summary>Reads the model file state and the model process again; called when the page is shown.</summary>
     public void Refresh()
@@ -155,6 +178,73 @@ public sealed partial class SettingsPageViewModel : ObservableObject
             IsSaveError = true;
             SaveStatus = "打不开数据目录：" + AppPaths.Root;
         }
+    }
+
+    /// <summary>Asks GitHub for the newest release and says what it found. Quietly does nothing twice at once.</summary>
+    [RelayCommand(CanExecute = nameof(CanCheckUpdate))]
+    private async Task CheckUpdateAsync()
+    {
+        IsCheckingUpdate = true;
+        IsUpdateError = false;
+        HasUpdate = false;
+        _updateUrl = null;
+        UpdateHint = "正在检查…";
+
+        try
+        {
+            ShowUpdate(await _updates.CheckAsync());
+        }
+        catch (Exception exception)
+        {
+            // The checker answers failures itself; this is the last resort (a broken DI, an unexpected throw).
+            IsUpdateError = true;
+            UpdateHint = "检查失败：" + exception.Message;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    /// <summary>Opens the release page in the browser, or the installer attached to it when there is one.</summary>
+    [RelayCommand]
+    private void OpenUpdate()
+    {
+        if (_updateUrl is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = _updateUrl.ToString(), UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            IsUpdateError = true;
+            UpdateHint = "打不开浏览器：" + _updateUrl;
+        }
+    }
+
+    private void ShowUpdate(UpdateCheck check)
+    {
+        HasUpdate = check.HasUpdate;
+        _updateUrl = check.Release?.Download;
+        IsUpdateError = check.Status == UpdateStatus.Failed;
+
+        UpdateHint = check.Status switch
+        {
+            UpdateStatus.UpdateAvailable => $"有新版本 v{check.Release!.Version}（当前 v{check.CurrentVersion}）。",
+            UpdateStatus.UpToDate => $"已是最新版本（v{check.CurrentVersion}）。",
+            UpdateStatus.NoReleases => "GitHub 上还没有发布版本。",
+            _ => check.Failure switch
+            {
+                UpdateFailure.Network => "连不上 GitHub，检查网络后再试。",
+                UpdateFailure.RateLimited => "GitHub 限流了，过一会儿再试。",
+                UpdateFailure.HttpError => $"GitHub 返回错误（{check.Detail}）。",
+                _ => "GitHub 返回的内容看不懂，稍后再试。"
+            }
+        };
     }
 
     partial void OnAppearanceChanged(string? value)

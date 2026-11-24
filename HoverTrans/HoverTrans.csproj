@@ -3,6 +3,9 @@
         <OutputType>WinExe</OutputType>
         <!-- net11.0 is the macOS/Linux build; the Windows build adds UI Automation and Windows.Media.Ocr. -->
         <TargetFrameworks>net11.0-windows10.0.19041.0</TargetFrameworks>
+        <!-- The update check compares this with the latest GitHub release tag, so it must be a plain version.
+             packaging/build-installer.ps1 passes the release version in (-p:Version) when it packages a build. -->
+        <Version>0.1.0</Version>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
