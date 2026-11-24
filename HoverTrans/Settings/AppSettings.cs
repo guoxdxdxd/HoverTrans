@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using HoverTrans.Core.Platform;
 using TKCode.Arc;
+using TKCode.Arc.Motion;
 
 namespace HoverTrans.Settings;
 
@@ -39,6 +40,12 @@ public sealed class AppSettings
 
     /// <summary>The accent seed (<c>#AARRGGBB</c>), or null for the accent the app was created with.</summary>
     public string? Accent { get; set; }
+
+    /// <summary>
+    /// How much of Arc's spring motion the app plays: 0 is full, 1 reduced, 2 off (<c>ArcMotionLevel</c>). Kept as a
+    /// number so the settings file needs no metadata for Arc's enum.
+    /// </summary>
+    public int MotionLevel { get; set; }
 
     /// <summary>The main window's size and position when it was last closed, or null before the first close.</summary>
     public WindowPlacement? Window { get; set; }
@@ -100,7 +107,7 @@ public sealed class AppSettings
     /// <summary>The start-up theme: the saved appearance and accent (Program.cs passes this to <c>WithTheme</c>).</summary>
     public void ApplyTheme(ArcThemeBuilder theme)
     {
-        theme.Appearance(Appearance);
+        theme.Appearance(Appearance).MotionLevel((ArcMotionLevel)Math.Clamp(MotionLevel, 0, 2));
         if (Accent is not null && Color.TryParse(Accent, out var seed))
         {
             theme.Accent(seed);

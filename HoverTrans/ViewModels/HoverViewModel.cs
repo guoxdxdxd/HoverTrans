@@ -23,6 +23,9 @@ public sealed partial class HoverViewModel : ObservableObject
 
     public bool HasTranslation => !string.IsNullOrWhiteSpace(TranslationText);
 
+    /// <summary>Translating but nothing to show yet: the popup holds two skeleton lines instead of an empty gap.</summary>
+    public bool IsWaiting => IsTranslating && !HasTranslation;
+
     public void Apply(HoverSnapshot snapshot)
     {
         SourceText = snapshot.SourceText;
@@ -31,5 +34,6 @@ public sealed partial class HoverViewModel : ObservableObject
         IsTranslating = snapshot.IsTranslating;
         IsError = snapshot.IsError;
         OnPropertyChanged(nameof(HasTranslation));
+        OnPropertyChanged(nameof(IsWaiting));
     }
 }

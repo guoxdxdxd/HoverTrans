@@ -8,10 +8,10 @@
 
 | 层 | 位置 | 职责 |
 | --- | --- | --- |
-| Core | `HoverTrans/Core` | 语言检测、分段、提示词、llama-server 生命周期、OpenAI 兼容客户端。不依赖 Avalonia。 |
+| Core | `HoverTrans/Core` | 语言检测、分段、提示词、llama-server 生命周期、OpenAI 兼容客户端、翻译历史存储。不依赖 Avalonia。 |
 | Services | `HoverTrans/Services` | `TranslationService` 编排；`HoverTranslationService` 轮询悬停；`HoverWindowManager` 显示浮窗。 |
 | Platform | `HoverTrans/Platform` | `IOcrService`、`IHoverTextSource` 抽象；Windows 用 UIA3 + Windows.Media.Ocr；其他平台 `Null*`。 |
-| UI | `HoverTrans/Views`、`ViewModels` | Avalonia 12 + TKCode.Arc；主窗口、悬停浮窗、设置。 |
+| UI | `HoverTrans/Views`、`ViewModels`、`Navigation` | Avalonia 12 + TKCode.Arc；侧栏导航的翻译 / 历史 / 设置三页、应用级状态、悬停浮窗。界面设计见 [ui.md](ui.md)。 |
 | Tests | `HoverTrans.Tests` | 纯逻辑 + ViewModel（Avalonia headless）。 |
 
 ## 翻译流程

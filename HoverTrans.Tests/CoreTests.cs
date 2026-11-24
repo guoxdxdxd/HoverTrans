@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using HoverTrans.Core.History;
 using HoverTrans.Core.Languages;
 using HoverTrans.Core.Model;
 using HoverTrans.Core.Platform;
@@ -70,10 +71,11 @@ public class CoreTests
     [AvaloniaFact]
     public async Task Translate_command_streams_the_result_into_the_view_model()
     {
-        var viewModel = new MainViewModel(
+        var store = NewHistoryStore();
+        var viewModel = new TranslatePageViewModel(
             new FakeTranslationService(),
             new FakeOcrService(),
-            new FakeHoverService())
+            store)
         {
             SourceText = "Hello"
         };
@@ -84,7 +86,61 @@ public class CoreTests
         Assert.Equal("你好", viewModel.ResultText);
         Assert.False(viewModel.IsBusy);
         Assert.Equal("翻译完成", viewModel.StatusText);
+
+        // A finished translation is kept for the history page.
+        var entry = Assert.Single(store.Load());
+        Assert.Equal("Hello", entry.SourceText);
+        Assert.Equal("你好", entry.ResultText);
     }
+
+    [Fact]
+    public void History_keeps_the_newest_first_and_replaces_the_same_translation()
+    {
+        var store = NewHistoryStore();
+        store.Append(Entry("one", "一", DateTimeOffset.Now.AddMinutes(-5)));
+        store.Append(Entry("two", "二", DateTimeOffset.Now));
+        store.Append(Entry("one", "一（改）", DateTimeOffset.Now));
+
+        var entries = store.Load();
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("one", entries[0].SourceText);
+        Assert.Equal("一（改）", entries[0].ResultText);
+        Assert.Equal("two", entries[1].SourceText);
+    }
+
+    [Fact]
+    public void History_survives_a_reload_and_clears()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"hovertrans-history-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new HistoryStore(path);
+            store.Append(Entry("Hello", "你好", DateTimeOffset.Now));
+
+            var reloaded = new HistoryStore(path);
+            Assert.Single(reloaded.Load());
+
+            reloaded.Clear();
+            Assert.Empty(new HistoryStore(path).Load());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static HistoryStore NewHistoryStore() =>
+        new(Path.Combine(Path.GetTempPath(), $"hovertrans-history-{Guid.NewGuid():N}.json"));
+
+    private static HistoryEntry Entry(string source, string result, DateTimeOffset at) => new()
+    {
+        SourceText = source,
+        ResultText = result,
+        SourceLanguage = "en",
+        TargetLanguage = "zh-CN",
+        CreatedAt = at
+    };
 
     [AvaloniaFact]
     public void Hover_window_renders_with_a_snapshot()

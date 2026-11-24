@@ -16,7 +16,7 @@ public static class AppSetup
         builder.WithInterFont()     // Inter for body text (Avalonia.Fonts.Inter)
                .WithArcFonts()      // Geist for display text, Geist Mono for code (TKCode.Arc.Fonts)
                .UseArc(arc => arc
-                   .UseArcControls() // Arc's controls, themes and design tokens
+                   .UseArcBlocks() // Arc's controls, themes, design tokens and the page-level blocks (Sidebar)
                    // Your own Arc controls (dotnet new tkcode-arc-control): uncomment this line once the first one exists.
                    // .UsePackage("HoverTrans", static p => TKCode.Arc.Generated.HoverTrans.ArcGeneratedAssets.AddTo(p))
                    // The theme of the first frame: the appearance and accent saved last time (Settings/AppSettings.cs).

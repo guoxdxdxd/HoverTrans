@@ -1,6 +1,14 @@
+using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Media.Transformation;
+using Avalonia.Threading;
 using HoverTrans.Services;
 using HoverTrans.ViewModels;
+using TKCode.Arc;
+using TKCode.Arc.Motion;
 
 namespace HoverTrans.Views;
 
@@ -11,6 +19,17 @@ public partial class HoverWindow : Window
     {
         InitializeComponent();
         DataContext = new HoverViewModel();
+
+        Root.Transitions =
+        [
+            new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(160) },
+            new TransformOperationsTransition
+            {
+                Property = Visual.RenderTransformProperty,
+                Duration = TimeSpan.FromMilliseconds(220),
+                Easing = new CubicEaseOut()
+            }
+        ];
     }
 
     public void Apply(HoverSnapshot snapshot)
@@ -19,5 +38,28 @@ public partial class HoverWindow : Window
         {
             viewModel.Apply(snapshot);
         }
+    }
+
+    /// <summary>The popup rises into place each time it appears; with motion reduced or off it simply appears.</summary>
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+
+        if (ArcTheme.State.MotionLevel != ArcMotionLevel.Full)
+        {
+            Root.Opacity = 1;
+            Root.RenderTransform = null;
+            return;
+        }
+
+        Root.Opacity = 0;
+        Root.RenderTransform = TransformOperations.Parse("translateY(8px)");
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                Root.Opacity = 1;
+                Root.RenderTransform = TransformOperations.Parse("translateY(0px)");
+            },
+            DispatcherPriority.Background);
     }
 }

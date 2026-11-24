@@ -36,23 +36,26 @@ powershell -ExecutionPolicy Bypass -File ./scripts/setup-model.ps1
 dotnet run --project HoverTrans -f net11.0-windows10.0.19041.0
 ```
 
-首次翻译会加载模型，通常需要 5–20 秒；之后同一进程内翻译只需数百毫秒。第一次加载的进度显示在状态栏。
+首次翻译会加载模型，通常需要 5–20 秒；之后同一进程内翻译只需数百毫秒。第一次加载的进度显示在译文卡的底部状态行。
 
-> **别跑错目标框架**：`net11.0` 是 macOS/Linux 目标，在 Windows 上也能启动，但没有 UI Automation 取词和系统 OCR——右上角「悬停取词」开关是灰的、点不动，状态栏会提示改用 Windows 目标。Windows 上统一用上面的 `-f net11.0-windows10.0.19041.0`（Visual Studio 里同样把启动的目标框架切到它）。
+> **别跑错目标框架**：`net11.0` 是 macOS/Linux 目标，在 Windows 上也能启动，但没有 UI Automation 取词和系统 OCR——顶栏「悬停取词」开关是灰的、点不动，设置页会说明原因。Windows 上统一用上面的 `-f net11.0-windows10.0.19041.0`（Visual Studio 里同样把启动的目标框架切到它）。
 
 ### 4. 使用
 
-- **悬停取词**：打开右上角「悬停取词」开关，把鼠标停在外文上约半秒，翻译浮窗会出现在鼠标旁。
-- **文本**：在左侧输入，选择目标语言，点「翻译」。
-- **图片**：截图后 `Ctrl+V`，或点「选择图片」，再点「翻译」。
-- **设置**：展开左下角「设置」，可改 llama-server 路径、GGUF 路径、端口和闲置退出分钟数；模型路径/端口修改后重启应用生效。
+- **翻译**：在左侧输入或粘贴文字，右侧逐字显示译文。页面顶部选源语言/目标语言，中间的 ⇄ 交换两者；`Ctrl+Enter` 翻译，`Esc` 取消。截图后 `Ctrl+V` 或把图片拖进原文卡片，先识别文字再翻译。
+- **悬停取词**：顶栏的「悬停取词」开关对所有页面生效；把鼠标停在外文上约半秒，译文浮窗出现在鼠标旁，不抢焦点。触发延迟可在设置里调。
+- **历史**：左侧「历史」保留最近 120 条翻译（同一段文字重译只留最新一条），可以搜索、复制、放回翻译页重译或删除。
+- **设置**：模型与运行（llama-server 路径、GGUF 路径、端口、闲置退出）、悬停取词（开关、触发延迟）、外观（主题、强调色、动效）和关于。模型相关修改在下次启动应用时生效，其余立即生效。
+
+界面结构、状态与动效规则见 [docs/ui.md](docs/ui.md)。
 
 ## 架构
 
 ```
 ┌──────────────────────────── HoverTrans (Avalonia 12 + TKCode.Arc) ───────────────────────────┐
-│  MainWindow / MainView                 HoverWindow (topmost, non-activating)                  │
-│  MainViewModel                         HoverViewModel                                         │
+│  MainWindow → MainView (Arc 侧栏)            HoverWindow (topmost, non-activating)             │
+│    翻译 / 历史 / 设置 三个页面                HoverViewModel                                   │
+│    MainViewModel + AppState                       │                                           │
 │      │                                     ▲                                                  │
 │      ▼                                     │                                                  │
 │  HoverTranslationService ── HoverSnapshot ─┘                                                  │
@@ -67,7 +70,8 @@ dotnet run --project HoverTrans -f net11.0-windows10.0.19041.0
 └───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- `HoverTrans/Core/`：不依赖 UI 的语言检测、分段、提示词、模型进程管理与 OpenAI 兼容客户端。
+- `HoverTrans/Core/`：不依赖 UI 的语言检测、分段、提示词、模型进程管理、OpenAI 兼容客户端与翻译历史存储。
+- `HoverTrans/Views/`、`HoverTrans/ViewModels/`：Arc 侧栏导航的三个页面（翻译 / 历史 / 设置）、应用级状态（模型、悬停）与悬停浮窗；页面首次显示时创建并保留，切页有淡入过渡。
 - `HoverTrans/Platform/Windows/`：Windows 专属的 UIA 取词和 OCR；`#if WINDOWS` 条件编译，macOS/Linux 使用 `Null*` 实现。
 - `HoverTrans/Services/`：翻译编排、悬停轮询、浮窗管理。
 - `HoverTrans.Tests/`：核心逻辑与 ViewModel 的 headless 测试。

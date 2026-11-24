@@ -4,10 +4,10 @@
         xmlns:views="using:HoverTrans.Views"
         x:Class="HoverTrans.Views.MainWindow"
         Title="悬译 HoverTrans"
-        Width="1120"
-        Height="780"
-        MinWidth="860"
-        MinHeight="620"
+        Width="1240"
+        Height="820"
+        MinWidth="1040"
+        MinHeight="660"
         Background="{arc:ArcDesignTokenResource Background}"
         WindowStartupLocation="CenterScreen">
     <views:MainView />

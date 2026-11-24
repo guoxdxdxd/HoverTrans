@@ -51,6 +51,7 @@ public class App : Application
 
     private static void Shutdown()
     {
+        Services.GetRequiredService<MainViewModel>().Dispose();
         Services.GetRequiredService<HoverWindowManager>().Dispose();
         _ = Services.GetRequiredService<IHoverService>().DisposeAsync();
         _ = Services.GetRequiredService<LlamaServerManager>().DisposeAsync();

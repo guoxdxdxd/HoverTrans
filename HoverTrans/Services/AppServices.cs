@@ -1,6 +1,8 @@
+using HoverTrans.Core.History;
 using HoverTrans.Core.Model;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
+using HoverTrans.Navigation;
 using HoverTrans.Platform;
 using HoverTrans.Settings;
 using HoverTrans.ViewModels;
@@ -13,12 +15,16 @@ namespace HoverTrans.Services;
 
 /// <summary>
 /// The app's services. Register a service here and take it as a constructor parameter of a view model; the container
-/// creates the view models (App.cs for the main one). Everything is registered with its type written out, so the
+/// creates the view models (App.cs for the shell). Everything is registered with its type written out, so the
 /// container needs no reflection over the assembly and the app can be trimmed.
 /// </summary>
 public static class AppServices
 {
-    public static IServiceProvider Build()
+    /// <summary>
+    /// Builds the container. <paramref name="history"/> is where the history page reads and writes: the default file,
+    /// or a temporary file for tests and screenshots that must not touch the person's own app data.
+    /// </summary>
+    public static IServiceProvider Build(HistoryStore? history = null)
     {
         var services = new ServiceCollection();
         var settings = AppSettings.Current;
@@ -45,6 +51,15 @@ public static class AppServices
 
         services.AddSingleton<IHoverService, HoverTranslationService>();
         services.AddSingleton<HoverWindowManager>();
+        services.AddSingleton(history ?? new HistoryStore());
+        services.AddSingleton<IUiNavigation, UiNavigation>();
+
+        // Page state is shared (the shell and the settings page both show hover, the shell counts history), so the
+        // pages and their view models live as long as the app.
+        services.AddSingleton<AppState>();
+        services.AddSingleton<TranslatePageViewModel>();
+        services.AddSingleton<HistoryPageViewModel>();
+        services.AddSingleton<SettingsPageViewModel>();
         services.AddSingleton<MainViewModel>();
         return services.BuildServiceProvider();
     }

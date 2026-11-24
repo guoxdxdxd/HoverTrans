@@ -1,0 +1,357 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+             xmlns:lucide="https://github.com/AIDotNet/TKCode.Arc/lucide"
+             xmlns:vm="using:HoverTrans.ViewModels"
+             x:Class="HoverTrans.Views.Pages.TranslatePage"
+             x:DataType="vm:TranslatePageViewModel">
+    <UserControl.Styles>
+        <!-- A borderless composer: the card is the field, so the text sits on the surface and breathes. -->
+        <Style Selector="TextBox.composer">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="120" />
+            <Setter Property="FontSize" Value="{arc:ArcDesignTokenResource TypeLG}" />
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
+            <Setter Property="CaretBrush" Value="{arc:ArcDesignTokenResource Accent}" />
+            <Setter Property="SelectionBrush" Value="{arc:ArcDesignTokenResource AccentSubtle}" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- The result text is meant to be read, then copied: roomier than the composer. -->
+        <Style Selector="SelectableTextBlock.result">
+            <Setter Property="FontSize" Value="{arc:ArcDesignTokenResource TypeLG}" />
+            <Setter Property="LineHeight" Value="30" />
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- A quiet pulse for "working": one dot, no spinner noise over the text. -->
+        <Style Selector="Border.pulse">
+            <Style.Animations>
+                <Animation Duration="0:0:1.4" IterationCount="Infinite">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="50%">
+                        <Setter Property="Opacity" Value="0.2" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="24,18,24,20" RowDefinitions="Auto,*" RowSpacing="12">
+        <!-- The language pair is the one control used on every translation, so it sits above both columns. -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <arc:Select Width="176"
+                            SelectedValue="{Binding SourceLanguageCode, Mode=TwoWay}"
+                            Placeholder="源语言"
+                            AutomationProperties.Name="源语言"
+                            arc:Tooltip.Tip="源语言：自动检测，或手动指定">
+                    <arc:SelectItem Content="自动检测" Value="auto" />
+                    <arc:SelectItem Content="中文（简体）" Value="zh-CN" />
+                    <arc:SelectItem Content="中文（繁體）" Value="zh-TW" />
+                    <arc:SelectItem Content="英语" Value="en" />
+                    <arc:SelectItem Content="日语" Value="ja" />
+                    <arc:SelectItem Content="韩语" Value="ko" />
+                    <arc:SelectItem Content="法语" Value="fr" />
+                    <arc:SelectItem Content="德语" Value="de" />
+                    <arc:SelectItem Content="西班牙语" Value="es" />
+                    <arc:SelectItem Content="俄语" Value="ru" />
+                    <arc:SelectItem Content="葡萄牙语" Value="pt" />
+                    <arc:SelectItem Content="意大利语" Value="it" />
+                    <arc:SelectItem Content="阿拉伯语" Value="ar" />
+                    <arc:SelectItem Content="泰语" Value="th" />
+                    <arc:SelectItem Content="越南语" Value="vi" />
+                    <arc:SelectItem Content="印尼语" Value="id" />
+                    <arc:SelectItem Content="土耳其语" Value="tr" />
+                    <arc:SelectItem Content="荷兰语" Value="nl" />
+                    <arc:SelectItem Content="波兰语" Value="pl" />
+                    <arc:SelectItem Content="乌克兰语" Value="uk" />
+                    <arc:SelectItem Content="马来语" Value="ms" />
+                    <arc:SelectItem Content="印地语" Value="hi" />
+                </arc:Select>
+
+                <arc:Button Width="36"
+                            Height="36"
+                            MinHeight="0"
+                            Padding="0"
+                            CornerRadius="12"
+                            Variant="Ghost"
+                            Command="{Binding SwapLanguagesCommand}"
+                            Click="OnSwapClick"
+                            AutomationProperties.Name="交换语言"
+                            arc:Tooltip.Tip="交换源语言和目标语言">
+                    <lucide:LucideIcon x:Name="SwapIcon" Kind="ArrowLeftRight" Size="15" />
+                </arc:Button>
+
+                <arc:Select Width="176"
+                            SelectedValue="{Binding TargetLanguageCode, Mode=TwoWay}"
+                            Placeholder="目标语言"
+                            AutomationProperties.Name="目标语言"
+                            arc:Tooltip.Tip="译文语言">
+                    <arc:SelectItem Content="中文（简体）" Value="zh-CN" />
+                    <arc:SelectItem Content="中文（繁體）" Value="zh-TW" />
+                    <arc:SelectItem Content="英语" Value="en" />
+                    <arc:SelectItem Content="日语" Value="ja" />
+                    <arc:SelectItem Content="韩语" Value="ko" />
+                    <arc:SelectItem Content="法语" Value="fr" />
+                    <arc:SelectItem Content="德语" Value="de" />
+                    <arc:SelectItem Content="西班牙语" Value="es" />
+                    <arc:SelectItem Content="俄语" Value="ru" />
+                    <arc:SelectItem Content="葡萄牙语" Value="pt" />
+                    <arc:SelectItem Content="意大利语" Value="it" />
+                    <arc:SelectItem Content="阿拉伯语" Value="ar" />
+                    <arc:SelectItem Content="泰语" Value="th" />
+                    <arc:SelectItem Content="越南语" Value="vi" />
+                    <arc:SelectItem Content="印尼语" Value="id" />
+                    <arc:SelectItem Content="土耳其语" Value="tr" />
+                    <arc:SelectItem Content="荷兰语" Value="nl" />
+                    <arc:SelectItem Content="波兰语" Value="pl" />
+                    <arc:SelectItem Content="乌克兰语" Value="uk" />
+                    <arc:SelectItem Content="马来语" Value="ms" />
+                    <arc:SelectItem Content="印地语" Value="hi" />
+                </arc:Select>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <TextBlock Text="Ctrl+Enter 翻译"
+                           FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                           Foreground="{arc:ArcDesignTokenResource TextMuted}" />
+                <TextBlock Text="Ctrl+V 粘贴图片"
+                           FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                           Foreground="{arc:ArcDesignTokenResource TextMuted}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="14">
+            <!-- Source: the composer. The whole card accepts a dropped image. -->
+            <Border Background="{arc:ArcDesignTokenResource Surface}"
+                    BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}"
+                    BorderThickness="1"
+                    CornerRadius="{arc:ArcDesignTokenResource RadiusPanel}"
+                    ClipToBounds="True">
+                <Grid>
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="18,14,18,8" ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="原文"
+                                           FontWeight="Medium"
+                                           Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                                <TextBlock Text="{Binding CharacterCountText}"
+                                           FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                           Foreground="{arc:ArcDesignTokenResource TextMuted}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <arc:Button Grid.Column="1"
+                                        Content="清空"
+                                        Variant="Text"
+                                        Size="Small"
+                                        MinHeight="28"
+                                        Padding="8,4"
+                                        CornerRadius="8"
+                                        Command="{Binding ClearCommand}"
+                                        IsEnabled="{Binding HasSource}" />
+                        </Grid>
+
+                        <Border DockPanel.Dock="Top"
+                                Margin="18,0,18,8"
+                                Padding="8"
+                                CornerRadius="12"
+                                Background="{arc:ArcDesignTokenResource SurfaceMuted}"
+                                IsVisible="{Binding HasImage}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Border Width="52"
+                                        Height="52"
+                                        CornerRadius="8"
+                                        ClipToBounds="True">
+                                    <Image Source="{Binding ImagePreview}" Stretch="UniformToFill" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="{Binding ImageName}"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="{arc:ArcDesignTokenResource TypeSM}"
+                                               Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                                    <TextBlock Text="翻译时先识别图片里的文字"
+                                               FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                               Foreground="{arc:ArcDesignTokenResource TextMuted}" />
+                                </StackPanel>
+                                <arc:Button Grid.Column="2"
+                                            Width="28"
+                                            Height="28"
+                                            MinHeight="0"
+                                            Padding="0"
+                                            CornerRadius="10"
+                                            Variant="Ghost"
+                                            Command="{Binding ClearImageCommand}"
+                                            AutomationProperties.Name="移除图片"
+                                            arc:Tooltip.Tip="移除图片">
+                                    <lucide:LucideIcon Kind="X" Size="14" />
+                                </arc:Button>
+                            </Grid>
+                        </Border>
+
+                        <Grid DockPanel.Dock="Bottom" Margin="18,10,18,14" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <TextBlock Text="{Binding OcrHint}"
+                                       IsVisible="{Binding !IsOcrSupported}"
+                                       TextWrapping="Wrap"
+                                       FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                       Foreground="{arc:ArcDesignTokenResource TextMuted}"
+                                       VerticalAlignment="Center" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <arc:Button Variant="Ghost"
+                                            Click="OnPasteImageClick"
+                                            AutomationProperties.Name="粘贴剪贴板里的图片"
+                                            arc:Tooltip.Tip="粘贴剪贴板里的图片">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:LucideIcon Kind="ClipboardPaste" Size="15" />
+                                        <TextBlock Text="粘贴图片" />
+                                    </StackPanel>
+                                </arc:Button>
+                                <arc:Button Variant="Ghost"
+                                            Click="OnPickImageClick"
+                                            AutomationProperties.Name="选择图片文件"
+                                            arc:Tooltip.Tip="从文件里选择一张图片">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:LucideIcon Kind="Image" Size="15" />
+                                        <TextBlock Text="选择图片" />
+                                    </StackPanel>
+                                </arc:Button>
+                                <arc:Button Content="取消"
+                                            Variant="Secondary"
+                                            Command="{Binding CancelCommand}"
+                                            IsVisible="{Binding IsBusy}" />
+                                <arc:Button Content="翻译"
+                                            Command="{Binding TranslateCommand}"
+                                            IsLoading="{Binding IsBusy}"
+                                            AutomationProperties.Name="翻译" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBox Classes="composer"
+                                 Margin="18,0,18,0"
+                                 Text="{Binding SourceText, Mode=TwoWay}"
+                                 PlaceholderText="输入或粘贴要翻译的文字，或把一张图片拖到这里…" />
+                    </DockPanel>
+
+                    <Border x:Name="DropHint"
+                            IsVisible="False"
+                            IsHitTestVisible="False"
+                            Background="{arc:ArcDesignTokenResource AccentSubtle}"
+                            BorderBrush="{arc:ArcDesignTokenResource Accent}"
+                            BorderThickness="2"
+                            CornerRadius="{arc:ArcDesignTokenResource RadiusPanel}">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                            <lucide:LucideIcon Kind="Image"
+                                               Size="26"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{arc:ArcDesignTokenResource AccentStrong}" />
+                            <TextBlock Text="松开，识别这张图片里的文字"
+                                       FontWeight="Medium"
+                                       Foreground="{arc:ArcDesignTokenResource AccentStrong}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Result: streams in place; copy confirms itself; the empty state explains the shortcuts once. -->
+            <Border Grid.Column="1"
+                    Background="{arc:ArcDesignTokenResource Surface}"
+                    BorderBrush="{arc:ArcDesignTokenResource BorderSubtle}"
+                    BorderThickness="1"
+                    CornerRadius="{arc:ArcDesignTokenResource RadiusPanel}"
+                    ClipToBounds="True">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="18,14,18,8" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="译文"
+                                       FontWeight="Medium"
+                                       Foreground="{arc:ArcDesignTokenResource Foreground}" />
+                            <TextBlock Text="{Binding ElapsedText}"
+                                       IsVisible="{Binding HasResult}"
+                                       FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                       Foreground="{arc:ArcDesignTokenResource TextMuted}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <arc:CopyButton Value="{Binding ResultText}"
+                                            Label="复制"
+                                            CopiedLabel="已复制"
+                                            FailedLabel="复制失败"
+                                            IsVisible="{Binding HasResult}" />
+                            <arc:Button Width="32"
+                                        Height="32"
+                                        MinHeight="0"
+                                        Padding="0"
+                                        CornerRadius="10"
+                                        Variant="Ghost"
+                                        Command="{Binding TranslateCommand}"
+                                        IsVisible="{Binding HasResult}"
+                                        AutomationProperties.Name="重新翻译"
+                                        arc:Tooltip.Tip="重新翻译">
+                                <lucide:LucideIcon Kind="RefreshCw" Size="14" />
+                            </arc:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <ProgressBar DockPanel.Dock="Top"
+                                 Height="2"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsBusy}" />
+
+                    <Grid DockPanel.Dock="Bottom" Margin="18,8,18,14" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Border Width="6"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Classes="pulse"
+                                    Background="{arc:ArcDesignTokenResource Accent}"
+                                    IsVisible="{Binding IsBusy}"
+                                    VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding StatusText}"
+                                       IsVisible="{Binding !IsError}"
+                                       TextWrapping="Wrap"
+                                       FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding StatusText}"
+                                       IsVisible="{Binding IsError}"
+                                       TextWrapping="Wrap"
+                                       FontSize="{arc:ArcDesignTokenResource TypeXS}"
+                                       Foreground="{arc:ArcDesignTokenResource Danger}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="18,0,18,0">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding HasResult}">
+                            <SelectableTextBlock Classes="result" Text="{Binding ResultText}" />
+                        </ScrollViewer>
+
+                        <arc:Skeleton Lines="6"
+                                      IsVisible="{Binding IsWaitingFirstToken}"
+                                      Margin="0,4,0,0"
+                                      VerticalAlignment="Top" />
+
+                        <arc:EmptyState IsVisible="{Binding IsResultEmpty}"
+                                        VerticalAlignment="Center"
+                                        Icon="{lucide:LucideGeometry Sparkles}"
+                                        Title="译文会显示在这里"
+                                        Description="翻译时先启动本机模型，第一段文字出现后就会逐字刷新。" />
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
