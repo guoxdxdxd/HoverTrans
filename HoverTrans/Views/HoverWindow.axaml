@@ -123,24 +123,16 @@
                         Background="{arc:ArcDesignTokenResource BorderSubtle}" />
 
                 <Grid Grid.Row="2">
-                    <!-- Read-only text box: the translation can be selected and copied like any text, with the usual
-                         right-click menu and Ctrl+C, including a part of it. It scrolls on its own when it is long. -->
-                    <TextBox Text="{Binding TranslationText, Mode=OneWay}"
-                             IsVisible="{Binding HasTranslation}"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Padding="0"
-                             MinHeight="24"
-                             FontSize="{arc:ArcDesignTokenResource TypeLG}"
-                             Foreground="{arc:ArcDesignTokenResource Foreground}"
-                             SelectionBrush="{arc:ArcDesignTokenResource AccentSubtle}"
-                             CaretBrush="Transparent"
-                             FocusAdorner="{x:Null}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                    <!-- Selectable text: the translation can be selected and copied like any text, with Ctrl+C or the
+                         right-click menu, including a part of it. Not a TextBox: Arc themes no TextBox, so one would
+                         render nothing here. -->
+                    <SelectableTextBlock Text="{Binding TranslationText}"
+                                         IsVisible="{Binding HasTranslation}"
+                                         TextWrapping="Wrap"
+                                         FontSize="{arc:ArcDesignTokenResource TypeLG}"
+                                         LineHeight="27"
+                                         Foreground="{arc:ArcDesignTokenResource Foreground}"
+                                         SelectionBrush="{arc:ArcDesignTokenResource AccentSubtle}" />
 
                     <arc:Skeleton Lines="2" IsVisible="{Binding IsWaiting}" Margin="0,2,0,0" />
                 </Grid>

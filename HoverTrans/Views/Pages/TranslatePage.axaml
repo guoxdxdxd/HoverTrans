@@ -6,12 +6,17 @@
              x:Class="HoverTrans.Views.Pages.TranslatePage"
              x:DataType="vm:TranslatePageViewModel">
     <UserControl.Styles>
-        <!-- A borderless composer: the card is the field, so the text sits on the surface and breathes. -->
-        <Style Selector="TextBox.composer">
+        <!-- A borderless composer: the card is the field, so the text sits on the surface and breathes. It is Arc's
+             text field, not Avalonia's TextBox: the Arc theme ships no ControlTheme for TextBox, so a plain one would
+             take keystrokes and render absolutely nothing. -->
+        <Style Selector="arc|Textarea.composer">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="MinHeight" Value="120" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="IsLabelVisible" Value="False" />
             <Setter Property="FontSize" Value="{arc:ArcDesignTokenResource TypeLG}" />
             <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
             <Setter Property="CaretBrush" Value="{arc:ArcDesignTokenResource Accent}" />
@@ -22,21 +27,12 @@
         </Style>
 
         <!-- The result is meant to be read, selected and copied: roomier than the composer, selectable. -->
-        <Style Selector="TextBox.result">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="AcceptsReturn" Value="True" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Style Selector="SelectableTextBlock.result">
             <Setter Property="FontSize" Value="{arc:ArcDesignTokenResource TypeLG}" />
+            <Setter Property="LineHeight" Value="30" />
             <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
             <Setter Property="SelectionBrush" Value="{arc:ArcDesignTokenResource AccentSubtle}" />
-            <Setter Property="CaretBrush" Value="Transparent" />
-            <Setter Property="FocusAdorner" Value="{x:Null}" />
-            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
-            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <!-- A quiet pulse for "working": one dot, no spinner noise over the text. -->
@@ -247,10 +243,10 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBox Classes="composer"
-                                 Margin="18,0,18,0"
-                                 Text="{Binding SourceText, Mode=TwoWay}"
-                                 PlaceholderText="输入或粘贴要翻译的文字，或把一张图片拖到这里…" />
+                        <arc:Textarea Classes="composer"
+                                      Margin="18,0,18,0"
+                                      Text="{Binding SourceText, Mode=TwoWay}"
+                                      Placeholder="输入或粘贴要翻译的文字，或把一张图片拖到这里…" />
                     </DockPanel>
 
                     <Border x:Name="DropHint"
@@ -343,11 +339,11 @@
                     </Grid>
 
                     <Grid Margin="18,0,18,0">
-                        <!-- Read-only text box: the translation can be selected and copied like any text, with the
-                             usual right-click menu and Ctrl+C, including a part of it. -->
-                        <TextBox Classes="result"
-                                 Text="{Binding ResultText, Mode=OneWay}"
-                                 IsVisible="{Binding HasResult}" />
+                        <!-- Selectable text: the translation can be selected and copied like any text, with Ctrl+C or
+                             the right-click menu, including a part of it. -->
+                        <SelectableTextBlock Classes="result"
+                                             Text="{Binding ResultText}"
+                                             IsVisible="{Binding HasResult}" />
 
                         <arc:Skeleton Lines="6"
                                       IsVisible="{Binding IsWaitingFirstToken}"

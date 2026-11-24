@@ -156,9 +156,9 @@ public class CoreTests
 
         Assert.True(window.IsVisible);
 
-        // The translation is a read-only text box, so a part of it can be selected and copied.
-        var translation = window.GetVisualDescendants().OfType<TextBox>().Single();
-        Assert.True(translation.IsReadOnly);
+        // The translation is selectable text, so a part of it can be copied. Not a TextBox: Arc themes no TextBox, and
+        // an untemplated one renders nothing at all (that is what made the popup look empty).
+        var translation = window.GetVisualDescendants().OfType<SelectableTextBlock>().Single();
         Assert.Equal("你好", translation.Text);
         translation.SelectAll();
         Assert.Equal("你好", translation.SelectedText);
