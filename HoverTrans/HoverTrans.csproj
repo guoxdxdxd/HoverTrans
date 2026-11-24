@@ -6,7 +6,11 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-        <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+        <!-- FlaUI's UIA3 automation activates the UI Automation COM objects, so the Windows build must keep built-in COM:
+             with it off, "new UIA3Automation()" throws NotSupportedException while the app is starting and the process dies
+             before the window appears. The other targets have no COM and stay lean. -->
+        <BuiltInComInteropSupport Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">true</BuiltInComInteropSupport>
+        <BuiltInComInteropSupport Condition="'$(TargetFramework)' != 'net11.0-windows10.0.19041.0'">false</BuiltInComInteropSupport>
         <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">10.0.17763.0</SupportedOSPlatformVersion>
         <!-- The .NET 11 SDK's optimized AOT publish drops Avalonia's compiled XAML ("No precompiled XAML found" at start). -->
         <UseOptimizedPublish>false</UseOptimizedPublish>

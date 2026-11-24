@@ -15,16 +15,36 @@ namespace HoverTrans.Platform.Windows;
 [SupportedOSPlatform("windows10.0.17763.0")]
 public sealed class WindowsHoverTextSource : IHoverTextSource, IDisposable
 {
-    private readonly UIA3Automation _automation = new();
+    private UIA3Automation? _automation;
+    private string? _unavailableReason;
+    private bool _initialized;
     private bool _disposed;
 
-    public bool IsSupported => true;
+    /// <summary>
+    /// True when the UI Automation client could be created. The client is created on first use instead of in the
+    /// constructor: a machine where COM or UI Automation is unavailable (or a build without built-in COM) then shows
+    /// "悬停取词不可用" in the app, instead of throwing while the service graph is built and killing the process.
+    /// </summary>
+    public bool IsSupported
+    {
+        get
+        {
+            EnsureAutomation();
+            return _automation is not null;
+        }
+    }
 
-    public string UnsupportedMessage => string.Empty;
+    public string UnsupportedMessage => _unavailableReason ?? string.Empty;
 
     public HoverText? GetTextAtCursor()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        EnsureAutomation();
+        if (_automation is not { } automation)
+        {
+            return null;
+        }
+
         if (!GetCursorPos(out var point))
         {
             return null;
@@ -43,7 +63,7 @@ public sealed class WindowsHoverTextSource : IHoverTextSource, IDisposable
                 }
             }
 
-            var element = _automation.FromPoint(new System.Drawing.Point(point.X, point.Y));
+            var element = automation.FromPoint(new System.Drawing.Point(point.X, point.Y));
             if (element is null)
             {
                 return null;
@@ -84,7 +104,26 @@ public sealed class WindowsHoverTextSource : IHoverTextSource, IDisposable
         }
 
         _disposed = true;
-        _automation.Dispose();
+        _automation?.Dispose();
+    }
+
+    /// <summary>Creates the UI Automation client once; a failure is remembered as the reason hover is unavailable.</summary>
+    private void EnsureAutomation()
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
+        _initialized = true;
+        try
+        {
+            _automation = new UIA3Automation();
+        }
+        catch (Exception ex)
+        {
+            _unavailableReason = "悬停取词不可用：无法初始化 Windows UI Automation（" + ex.Message + "）。";
+        }
     }
 
     private static string? ExtractText(AutomationElement element)

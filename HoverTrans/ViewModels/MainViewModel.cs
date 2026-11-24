@@ -121,7 +121,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _initialized = true;
         _statusTimer.Start();
         ModelStatus = _translation.StatusText;
-        if (HoverEnabled)
+        if (!IsHoverSupported)
+        {
+            // A greyed-out switch with no explanation reads like a broken toggle: turn a leftover preference off and
+            // say why it cannot be used, in the status line the user is already looking at.
+            HoverEnabled = false;
+            StatusText = _hover.UnsupportedMessage;
+        }
+        else if (HoverEnabled)
         {
             StartHover();
         }
