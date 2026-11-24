@@ -97,9 +97,24 @@ dotnet build HoverTrans/HoverTrans.csproj -f net11.0
 
 # Windows 自包含发布
 dotnet publish HoverTrans/HoverTrans.csproj -f net11.0-windows10.0.19041.0 -c Release -r win-x64 --self-contained true
+
+# 打 Windows 安装包（Inno Setup 6：winget install --id JRSoftware.InnoSetup -e）
+pwsh -File ./packaging/build-installer.ps1
 ```
 
 需要 .NET 11 SDK。仓库根的 `global.json` 固定 `11.0.100`，并允许 11.0.x 的 feature band 向上滚动。
+
+## 安装包
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e   # 只装一次
+pwsh -File ./packaging/build-installer.ps1    # -> artifacts\installer\HoverTrans-<版本>-win-x64-setup.exe
+```
+
+安装包按用户装到 `%LOCALAPPDATA%\Programs\HoverTrans`，不需要管理员；llama.cpp 运行时随包铺到
+`%LOCALAPPDATA%\HoverTrans\runtime`；模型（1.1 GB）不进安装包，由安装最后一步调用
+`packaging\deploy-model.ps1` 下载并校验到 `%LOCALAPPDATA%\HoverTrans\models`，装完即可翻译。
+卸载保留模型和设置。细节、静默安装参数、冒烟测试清单见 [packaging/README.md](packaging/README.md)。
 
 ## 已知限制
 

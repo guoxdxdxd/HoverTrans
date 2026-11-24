@@ -1,0 +1,15 @@
+{
+  "file": "Hy-MT2-1.8B-Q4_K_M.gguf",
+  "note": "size 与 sha256 是本机部署时实测的值（同一份权重，ModelScope 与 Hugging Face 各有一份镜像）。上游若重新上传权重，校验会不通过：这时把新值替换进来，并把本轮已下载的文件改名 .mismatch 后手动确认。size/sha256 置空即退回「只查 900 MB 下限」。",
+  "size": 1133080448,
+  "sha256": "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+  "sources": [
+    "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/master/Hy-MT2-1.8B-Q4_K_M.gguf",
+    "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/main/Hy-MT2-1.8B-Q4_K_M.gguf?download=true"
+  ],
+  "license": "Apache-2.0 (Tencent Hunyuan Hy-MT2 1.8B)",
+  "llama": {
+    "tag": "b12662",
+    "assetPattern": "llama-{tag}-bin-win-{variant}-x64.zip"
+  }
+}

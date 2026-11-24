@@ -16,19 +16,17 @@ jobs:
       - run: dotnet restore HoverTrans.slnx
       - run: dotnet build HoverTrans.slnx -c Release --no-restore
       - run: dotnet test HoverTrans.slnx -c Release --no-build
-      - name: Publish self-contained Windows build
-        run: >
-          dotnet publish HoverTrans/HoverTrans.csproj
-          -f net11.0-windows10.0.19041.0
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true
-          -o artifacts/win-x64
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build installer
+        shell: pwsh
+        # 不含 llama.cpp 运行时（-SkipRuntime）：CI 只验证安装包能打出来，发布包由 release.yml 带运行时。
+        run: ./packaging/build-installer.ps1 -SkipRuntime
       - uses: actions/upload-artifact@v4
         with:
-          name: HoverTrans-win-x64
-          path: artifacts/win-x64
+          name: HoverTrans-installer
+          path: artifacts/installer/*.exe
+          if-no-files-found: error
 
   cross-platform-build:
     runs-on: ubuntu-latest
