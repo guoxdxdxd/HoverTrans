@@ -2,7 +2,7 @@
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <!-- net11.0 is the macOS/Linux build; the Windows build adds UI Automation and Windows.Media.Ocr. -->
-        <TargetFrameworks>net11.0;net11.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks>net11.0-windows10.0.19041.0</TargetFrameworks>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

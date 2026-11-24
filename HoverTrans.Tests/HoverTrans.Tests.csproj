@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- Tests that start the app on Avalonia's headless platform: no window opens, so they run anywhere, CI included.
-         dotnet test from the solution folder runs them. -->
+    <!-- Tests that start the app on Avalonia's headless platform: no window opens. They target the same framework as
+         the app, which is Windows-only while the Windows MVP is the only build. -->
     <PropertyGroup>
-        <TargetFramework>net11.0</TargetFramework>
+        <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>

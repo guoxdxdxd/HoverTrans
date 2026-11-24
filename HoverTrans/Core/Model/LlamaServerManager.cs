@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using HoverTrans.Core.Platform;
 
 namespace HoverTrans.Core.Model;
@@ -77,6 +79,7 @@ public sealed class LlamaServerManager : IAsyncDisposable
             }
 
             ValidateFiles();
+            EnsurePortFree();
             SetState(LlamaServerState.Starting);
 
             try
@@ -154,6 +157,36 @@ public sealed class LlamaServerManager : IAsyncDisposable
             throw new FileNotFoundException(
                 $"未找到 Hy-MT2 模型：{_options.ModelPath}。请先运行 scripts/setup-model.ps1 下载模型（约 1.1 GB），或在设置里修改路径。",
                 _options.ModelPath);
+        }
+    }
+
+    /// <summary>
+    /// Fails early with a clear message when something already listens on the configured port — almost always a
+    /// llama-server left behind by a previous run. Without this the new process dies a second later and the UI only
+    /// reports "启动后退出（退出码 1）", which says nothing about the port.
+    /// </summary>
+    private void EnsurePortFree()
+    {
+        if (!IsPortListening())
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"端口 {_options.Port} 已被占用：很可能是上一次运行留下的 llama-server 还在运行，或别的程序占用了它。先结束那个进程，或在设置里换一个端口。");
+    }
+
+    private bool IsPortListening()
+    {
+        try
+        {
+            using var client = new TcpClient();
+            var connect = client.ConnectAsync(IPAddress.Loopback, _options.Port);
+            return connect.Wait(TimeSpan.FromMilliseconds(300)) && client.Connected;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -295,7 +328,8 @@ public sealed class LlamaServerManager : IAsyncDisposable
                         && Volatile.Read(ref _activeRequests) == 0
                         && DateTimeOffset.UtcNow - _lastActivity >= _options.IdleTimeoutValue)
                     {
-                        LogLine($"idle for {_options.IdleTimeoutValue.TotalMinutes:0.#} minutes, stopping llama-server");
+                        var idle = DateTimeOffset.UtcNow - _lastActivity;
+                        LogLine($"idle for {idle.TotalMinutes:0.#} minutes (timeout {_options.IdleTimeoutValue.TotalMinutes:0.#}), stopping llama-server");
                         await StopCoreAsync().ConfigureAwait(false);
                     }
                 }

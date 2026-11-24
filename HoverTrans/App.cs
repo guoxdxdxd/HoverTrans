@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using HoverTrans.Core.Model;
 using HoverTrans.Core.Translation;
@@ -28,6 +29,10 @@ public class App : Application
         {
             // A desktop window.
             case IClassicDesktopStyleApplicationLifetime desktop:
+                // Closing the main window must end the app. With Avalonia's default (last window closed) the hidden
+                // hover window kept the process alive with no window left to reach it: hover kept translating, and
+                // llama-server stayed up with nothing in the UI able to stop it.
+                desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
                 var viewModel = CreateMainViewModel();
                 desktop.MainWindow = new MainWindow { DataContext = viewModel };
                 Services.GetRequiredService<HoverWindowManager>().Initialize();

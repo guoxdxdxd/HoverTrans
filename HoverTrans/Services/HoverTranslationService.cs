@@ -12,7 +12,6 @@ namespace HoverTrans.Services;
 public sealed class HoverTranslationService : IHoverService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(300);
-    private static readonly TimeSpan DuplicateSuppression = TimeSpan.FromSeconds(30);
 
     private readonly ITranslationService _translation;
     private readonly IHoverTextSource _source;
@@ -82,7 +81,6 @@ public sealed class HoverTranslationService : IHoverService
         string? candidate = null;
         DateTimeOffset candidateSince = default;
         string? lastTranslated = null;
-        DateTimeOffset lastTranslatedAt = default;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -99,6 +97,7 @@ public sealed class HoverTranslationService : IHoverService
                 if (hit is null || string.IsNullOrWhiteSpace(hit.Text))
                 {
                     candidate = null;
+                    lastTranslated = null;
                     continue;
                 }
 
@@ -106,6 +105,7 @@ public sealed class HoverTranslationService : IHoverService
                 if (text.Length < 2 || text.Length > 3000 || !LanguageDetector.ShouldTranslateToChinese(text))
                 {
                     candidate = null;
+                    lastTranslated = null;
                     continue;
                 }
 
@@ -113,6 +113,7 @@ public sealed class HoverTranslationService : IHoverService
                 {
                     candidate = text;
                     candidateSince = DateTimeOffset.UtcNow;
+                    lastTranslated = null;
                     continue;
                 }
 
@@ -123,14 +124,15 @@ public sealed class HoverTranslationService : IHoverService
                     continue;
                 }
 
-                if (string.Equals(text, lastTranslated, StringComparison.Ordinal)
-                    && DateTimeOffset.UtcNow - lastTranslatedAt < DuplicateSuppression)
+                // One translation per text under the cursor, not one per timer tick: re-translating the same text
+                // every 30 seconds kept a parked cursor translating forever, which also kept the model from ever
+                // reaching its idle timeout. Moving to another text (or away and back) translates again.
+                if (string.Equals(text, lastTranslated, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
                 lastTranslated = text;
-                lastTranslatedAt = DateTimeOffset.UtcNow;
 
                 await TranslateAsync(text, hit.X, hit.Y, cancellationToken).ConfigureAwait(false);
             }
