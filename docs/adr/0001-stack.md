@@ -1,6 +1,6 @@
 # ADR 0001：技术栈选择
 
-- 状态：已接受
+- 状态：已接受（推理部分已被 [0002](0002-in-process-inference.md) 取代：不再用 llama.cpp，模型也不再按需启停）
 - 日期：2026-11-24
 
 ## 背景
@@ -18,10 +18,10 @@
    - 官方模板直接生成 `net11.0` 工程，减少从零搭 UI 的时间。
    - 风险：库较新（2026-10 发布），升级时需跟随 Avalonia 12.x；因此 UI 只依赖稳定控件（Card/Button/Switch/ThemeSwitcher）和标准 Avalonia 控件。
 
-3. **Hy-MT2 1.8B Q4_K_M + llama.cpp**
-   - 1.1 GB，CPU 可跑，翻译专用，33 种语言。
-   - llama.cpp 提供 Windows/macOS 预编译二进制和 OpenAI 兼容 SSE 接口；应用可以完全掌控进程启停。
-   - 相比云端 API：离线、隐私、无按次成本；相比通用 7B：内存和首译延迟更低。
+3. **Hy-MT3 1.8B Q4_K_M + Sdcb.HyMT2Sharp（进程内推理）**
+   - 约 1.35 GB，CPU 可跑，翻译专用；1.8B 比通用 7B 内存和首译延迟更低。
+   - Sdcb.HyMT2Sharp 是纯 C# 的 hunyuan-dense 推理库，权重直接从 NuGet 读，进程内调用，没有外部进程和端口。
+   - ~~原方案：Hy-MT2 1.8B + llama.cpp 子进程 + OpenAI 兼容接口~~ —— 2026-11-25 换掉，取舍见 [0002](0002-in-process-inference.md)。
 
 4. **Windows 平台层用 UI Automation + Windows.Media.Ocr**
    - UIA 是系统无障碍树，覆盖浏览器、Office、WinUI/WPF/WinForms 和多数 Electron 应用，不需要逐应用适配。
@@ -39,6 +39,7 @@
 - **云端翻译 API**：违背本地/隐私目标，且按量计费。
 - **自带通用 LLM**：7B 以上内存占用高，翻译质量不一定优于专用 1.8B。
 - **把模型打进安装包**：仓库和安装包过大，且模型许可/下载源需要用户可见；改为脚本下载 + 校验。
+  （2026-11-25 起模型确实随安装包分发：进程内推理让「模型文件」这个概念消失，详见 [0002](0002-in-process-inference.md)。）
 
 ## 后果
 
