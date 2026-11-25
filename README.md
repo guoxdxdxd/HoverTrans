@@ -119,15 +119,21 @@ pwsh -File ./packaging/build-installer.ps1    # -> artifacts\installer\HoverTran
 
 ### 发布一个新版本
 
+两种方式，产物一样（安装包 + GitHub Release，Release 说明自动取「自上个版本以来的提交」）：
+
 ```powershell
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.2.0 && git push origin v0.2.0      # A：推 tag，版本号就是 tag
 ```
 
-打 tag 会触发 `.github/workflows/release.yml`：Windows 上打包出安装包、挂到 GitHub Release（直接发布，不是草稿）。
-应用内的「检查更新」读的是 `releases/latest`，所以草稿版本它看不见——要让人升级，就得真的发出去。
+**B：去 Actions → release → Run workflow**，填版本号（`0.2.0` 或 `v0.2.0` 都行），
+留空则取最新 tag 的 patch +1；勾 `dry_run` 只构建不发布，产物在本次运行的 Artifacts 里。
+两条路都会：按版本号构建安装包 → 建 tag（手动运行时建在当前提交上）→ 发布 Release 并附上 exe。
+
+失败会明确报出来：版本号格式不对、这个版本的 release 已经存在、或者 tag 已存在但指向别的提交。
 
 构建时会用 `-p:Version` 把 tag 的数字版本写进应用（`v0.2.0` → `0.2.0`，`git describe` 的
 `0.2.0-11-g778f5aa` 也只取 `0.2.0`），否则应用报的版本永远和 tag 对不上，更新检查就永远说「已是最新」。
+手动运行建出来的 tag 只存在于远端，本地记得 `git fetch --tags`。
 
 ## 已知限制
 

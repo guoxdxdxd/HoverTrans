@@ -1,13 +1,32 @@
 name: release
 
+# 两种触发方式，产物相同（安装包 + GitHub Release）：
+#   1. 推 tag：git tag v0.2.0 && git push origin v0.2.0 —— 版本号就是 tag。
+#   2. Actions 里点 Run workflow：填一个版本号（0.2.0 或 v0.2.0），留空则把最新 tag 的 patch +1；
+#      勾 dry_run 只构建、不发布，用来先看包对不对。
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号，例如 0.2.0 或 v0.2.0；留空 = 最新 tag 的 patch +1'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: '只构建不发布（产物在本次运行的 Artifacts 里）'
+        required: false
+        default: false
+        type: boolean
 
 # softprops/action-gh-release 要写 Release，否则用的是只读的默认 token。
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   installer:
@@ -15,33 +34,125 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # build-installer.ps1 用 git describe 取版本，浅克隆看不到 tag。
+          # build-installer.ps1 用 git describe 取版本；下面算「最新 tag」也要标签。
           fetch-depth: 0
+
+      - name: Resolve the version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $source = "tag $env:GITHUB_REF_NAME"
+            $raw = $env:GITHUB_REF_NAME
+          }
+          elseif (-not [string]::IsNullOrWhiteSpace($env:INPUT_VERSION)) {
+            $source = '手动输入'
+            $raw = $env:INPUT_VERSION.Trim()
+          }
+          else {
+            $latest = git tag --list 'v*' --sort=-v:refname | Select-Object -First 1
+            if (-not $latest) {
+              $raw = '0.1.0'
+              $source = '没有旧 tag，从 0.1.0 开始'
+            }
+            else {
+              $parts = $latest.TrimStart('v', 'V').Split('-')[0].Split('.')
+              $raw = '{0}.{1}.{2}' -f [int]$parts[0], [int]$parts[1], ([int]$parts[2] + 1)
+              $source = "最新 tag $latest 的 patch +1"
+            }
+          }
+
+          $clean = $raw.Trim().TrimStart('v', 'V')
+          if ($clean -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$') {
+            throw "版本号「$raw」不合法：要 0.2.0 这种形式（可以带 -beta.1）"
+          }
+
+          Write-Host "版本：$clean（来源：$source）"
+          "tag=v$clean" >> $env:GITHUB_OUTPUT
+          "version=$clean" >> $env:GITHUB_OUTPUT
+          "source=$source" >> $env:GITHUB_OUTPUT
+
+      - name: Make sure the release does not exist yet
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          gh release view $env:TAG --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "release $env:TAG 已经存在。换一个版本号，或先在 GitHub 上删掉那个 release 再重跑。"
+          }
+
+          # tag 已存在但指向别的提交时，Release 内容会和这次构建的源码对不上。
+          git rev-parse --verify --quiet "refs/tags/$env:TAG" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            $tagSha = git rev-list -n 1 $env:TAG
+            if ($tagSha -ne $env:GITHUB_SHA) {
+              throw "tag $env:TAG 已经存在，指向 $tagSha，而这次构建的是 $env:GITHUB_SHA。换一个版本号，或删掉旧 tag。"
+            }
+          }
+
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '11.0.x'
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
+
       - name: Build installer
         shell: pwsh
         run: |
           Start-Transcript -Path installer-build.log
-          try { ./packaging/build-installer.ps1 -Version $env:GITHUB_REF_NAME } finally { Stop-Transcript }
+          try { ./packaging/build-installer.ps1 -Version '${{ steps.version.outputs.version }}' } finally { Stop-Transcript }
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: installer-build-log
           path: installer-build.log
+
       - uses: actions/upload-artifact@v4
         with:
-          name: HoverTrans-installer
+          name: HoverTrans-${{ steps.version.outputs.version }}-installer
           path: artifacts/installer/*.exe
           if-no-files-found: error
-      - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Publish the release
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
         with:
+          # tag 不存在时按 target_commitish 建在当前提交上：Release、tag、安装包对得上同一份源码。
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.tag }}
           files: artifacts/installer/*.exe
+          # 版本内容用 GitHub 自动生成的、自上个 release 以来的提交与 PR。
+          generate_release_notes: true
           # 直接发布，不留在草稿里：应用的「检查更新」读的是 latest release，草稿它看不见。
           draft: false
-          generate_release_notes: true
+
+      - name: Summary
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SOURCE: ${{ steps.version.outputs.source }}
+        run: |
+          $dry = '${{ github.event.inputs.dry_run }}' -eq 'true'
+          $file = Get-ChildItem artifacts/installer/*.exe | Select-Object -First 1
+          @(
+            '### 悬译 HoverTrans ' + $env:TAG
+            ''
+            "- 版本：``$env:VERSION``（$env:SOURCE）"
+            "- 安装包：$($file.Name)（$([math]::Round($file.Length / 1MB, 1)) MB）"
+            "- 触发：$($env:GITHUB_EVENT_NAME)；提交：$($env:GITHUB_SHA)"
+            $(if ($dry) { '- 模式：dry run，只上传了 artifact，没有发布 release' }
+              else { '- Release：已发布，应用内「检查更新」能读到它' })
+          ) | Add-Content $env:GITHUB_STEP_SUMMARY
