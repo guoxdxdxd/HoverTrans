@@ -124,6 +124,31 @@ jobs:
           path: artifacts/installer/*.exe
           if-no-files-found: error
 
+      - name: Write the release notes
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        shell: pwsh
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # GitHub 自动生成的说明只列合并进来的 PR；这个仓库是直接推 main 的，所以自己按提交写。
+          $previous = git tag --list 'v*' --sort=-v:refname | Where-Object { $_ -ne $env:TAG } | Select-Object -First 1
+          if ($previous) { $range = "$previous..HEAD" } else { $range = 'HEAD' }
+          Write-Host "提交范围：$range"
+
+          $commits = git log $range --no-merges --date=short --pretty=format:'- %s（%h，%ad）'
+          if (-not $commits) { $commits = @('- 没有新的提交') }
+
+          $notes = @('## 这次改了什么', '') + @($commits)
+          if ($previous) {
+            $notes += ''
+            $notes += "完整对比：https://github.com/$env:GITHUB_REPOSITORY/compare/$previous...$env:TAG"
+          }
+
+          $notes | Set-Content -Path release-notes.md -Encoding utf8
+          Get-Content release-notes.md
+
       - name: Publish the release
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v2
@@ -133,8 +158,9 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: ${{ steps.version.outputs.tag }}
           files: artifacts/installer/*.exe
-          # 版本内容用 GitHub 自动生成的、自上个 release 以来的提交与 PR。
-          generate_release_notes: true
+          # 版本内容是自己按提交写的 release-notes.md，不用 GitHub 的 PR 汇总。
+          body_path: release-notes.md
+          generate_release_notes: false
           # 直接发布，不留在草稿里：应用的「检查更新」读的是 latest release，草稿它看不见。
           draft: false
 
