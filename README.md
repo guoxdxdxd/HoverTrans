@@ -10,7 +10,7 @@ Windows 优先、兼容 macOS 的本地 AI 翻译工具：鼠标悬停在外文�
 - **文本翻译**：输入或粘贴任意文本，自动检测源语言，也可手动指定源语言/目标语言（中文简繁、英、日、韩、法、德、西、俄等 20+ 种）。
 - **直译 / 意译**：语言对右侧勾选「意译」后按意思翻——口语化、俚语和习语换成地道说法；不勾选按原文字面直译。选择会被记住，悬停浮窗始终直译。
 - **图片翻译**：`Ctrl+V` 粘贴剪贴板图片，或选择图片文件；Windows 用系统 OCR 识别文字后再翻译。
-- **进程内推理**：模型权重随应用分发，第一次翻译时加载（约 2–20 秒），之后一直留在内存里；没有外部进程、端口和 API key，也没有下载/部署步骤。
+- **进程内推理**：模型权重随应用分发，第一次翻译时加载（约 2–20 秒）；闲置 10 分钟（0–120 分钟可调，0 = 常驻）后把内存还给系统，下次翻译再加载（约 2 秒）。没有外部进程、端口和 API key，也没有下载/部署步骤。
 - **流式结果**：译文边生成边显示，可取消、可复制。
 - **主题**：跟随系统的明暗主题，Arc 组件库的动效与设计令牌。
 - **检查更新**：设置页「检查更新」直接读 GitHub 最新 release，比当前版本新就提示，并可一键打开下载页（[`guoxdxdxd/HoverTrans`](https://github.com/guoxdxdxd/HoverTrans)）。
@@ -38,7 +38,7 @@ dotnet run --project HoverTrans -f net11.0-windows10.0.19041.0
 - **翻译**：在左侧输入或粘贴文字，右侧逐字显示译文。页面顶部选源语言/目标语言，中间的 ⇄ 交换两者；翻口语、俚语或整段对话时勾上语言对右边的「意译」，按意思译而不是逐字直译。`Ctrl+Enter` 翻译，`Esc` 取消。截图后 `Ctrl+V` 或把图片拖进原文卡片，先识别文字再翻译。译文可以拖选一段再 `Ctrl+C`，右上角「复制」复制全文。
 - **悬停取词**：顶栏的「悬停取词」开关对所有页面生效；把鼠标停在外文上约半秒，译文浮窗出现在鼠标旁，不抢焦点。浮窗右上角可以复制译文、打开主窗口或直接 `×` 收起；触发延迟可在设置里调。
 - **历史**：左侧「历史」保留最近 120 条翻译（同一段文字重译只留最新一条），可以搜索、复制、放回翻译页重译或删除。
-- **设置**：本地模型（推理后端：自动 / 仅 CPU / 显卡，以及当前模型状态）、悬停取词（开关、触发延迟）、外观（主题、强调色、动效）和关于。后端改动在下次启动应用时生效，其余立即生效。
+- **设置**：本地模型（推理后端：自动 / 仅 CPU / 显卡；闲置释放内存 0–120 分钟（0 = 常驻）；立即释放）、悬停取词（开关、触发延迟）、外观（主题、强调色、动效）和关于。后端与闲置释放时长在下次启动应用时生效，其余立即生效。
 
 界面结构、状态与动效规则见 [docs/ui.md](docs/ui.md)。
 
@@ -142,7 +142,7 @@ git tag v0.2.0 && git push origin v0.2.0      # A：推 tag，版本号就是 ta
 - Windows OCR 需要系统安装对应语言的 OCR 组件（中文/英文通常已装）；装不上时会在状态栏提示。
 - 图片翻译暂不保留版面，只输出识别到的纯文本。
 - macOS 端目前只有接口和构建目标，Accessibility/Vision 实现待补；推理引擎已在 macOS 目标下编译通过（Metal 后端待真机验证）。
-- **内存与加载**：首次加载 2–20 秒（取决于磁盘与是否已在页缓存），加载后占约 4.4 GB 内存并常驻到关闭应用；这是进程内推理换来的代价。
+- **内存与加载**：首次加载 2–20 秒（取决于磁盘与是否已在页缓存），加载后工作集约 4.4 GB、私有内存约 3.3 GB；闲置 10 分钟（可设 0 = 常驻）不翻译就释放，私有内存回落到约 100 MB，再翻译重新加载约 2 秒。
 - **显卡后端**：Vulkan 在部分驱动上能在探测阶段通过、却在加载权重时失败（`no suitable memory type`）。引擎会自动回退 CPU 并在 `engine.log` 记录原因，设置页状态行显示实际后端。
 
 ## 隐私
@@ -172,7 +172,7 @@ git tag v0.2.0 && git push origin v0.2.0      # A：推 tag，版本号就是 ta
 
 **HoverTrans** is a local-first AI translator for Windows (macOS planned). Hover over foreign text and it reads the control through UI Automation, detects non-Chinese text, and translates it to Chinese with Tencent **Hy-MT3 1.8B Q4_K_M** running **in-process** through [Sdcb.HyMT2Sharp](https://github.com/sdcb/HyMT2Sharp) — no llama.cpp, no local server, no cloud. Text input and clipboard/file images are supported too.
 
-The weights ship as NuGet packages, load on the first translation and stay in memory (~4.4 GB) until the app exits.
+The weights ship as NuGet packages and load on the first translation. After ten idle minutes (configurable, 0 keeps them loaded) the model releases its memory again — about 3.3 GB of private bytes go back to the OS — and the next translation reloads it in ~2 seconds.
 
 ```powershell
 dotnet run --project HoverTrans -f net11.0-windows10.0.19041.0

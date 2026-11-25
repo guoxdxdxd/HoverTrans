@@ -19,7 +19,9 @@ public sealed class TranslationService : ITranslationService
         EngineState.Ready => $"模型已加载（{HunyuanEngine.ModelId} · {_engine.BackendName} · {_engine.LoadTime.TotalSeconds:0.0} 秒）",
         EngineState.Loading => "模型加载中…（首次翻译要读约 1.3 GB 权重）",
         EngineState.Failed => "模型加载失败：" + (_engine.LastError ?? "未知错误"),
-        _ => "模型未加载（首次翻译时加载）"
+        _ => _engine.IdleUnload is { } idle
+            ? $"模型未加载（首次翻译时加载，闲置 {idle.TotalMinutes:0.#} 分钟后释放内存）"
+            : "模型未加载（首次翻译时加载，之后常驻）"
     };
 
     public bool IsModelLoaded => _engine.IsLoaded;
@@ -86,6 +88,9 @@ public sealed class TranslationService : ITranslationService
         var final = result.ToString().Trim();
         progress?.Report(TranslationProgress.Completed(final));
     }
+
+    public Task UnloadModelAsync(CancellationToken cancellationToken = default) =>
+        _engine.UnloadAsync(cancellationToken);
 
     private static string Combine(StringBuilder previous, string current)
     {

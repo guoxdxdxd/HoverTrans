@@ -34,7 +34,10 @@ public static class AppServices
         services.AddSingleton(new HunyuanEngineOptions(
             Backend: settings.Backend,
             Threads: 0,
-            MaxTokens: 2048));
+            MaxTokens: 2048,
+            IdleUnload: settings.IdleUnloadMinutes > 0
+                ? TimeSpan.FromMinutes(Math.Clamp(settings.IdleUnloadMinutes, 1, 120))
+                : null));
 
         services.AddSingleton<HunyuanEngine>();
         services.AddSingleton<ITranslationService, TranslationService>();

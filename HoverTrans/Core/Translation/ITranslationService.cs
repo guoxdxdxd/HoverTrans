@@ -17,4 +17,10 @@ public interface ITranslationService
         TranslationRequest request,
         IProgress<TranslationProgress>? progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Releases the model's memory now; the next translation loads it again. Does nothing while a
+    /// translation is running.
+    /// </summary>
+    Task UnloadModelAsync(CancellationToken cancellationToken = default);
 }

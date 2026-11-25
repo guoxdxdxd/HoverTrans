@@ -82,5 +82,7 @@ public class ImageInputTests
             progress?.Report(TranslationProgress.Completed("你好"));
             return Task.CompletedTask;
         }
+
+        public Task UnloadModelAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

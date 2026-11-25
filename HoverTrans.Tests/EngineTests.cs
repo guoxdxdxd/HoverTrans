@@ -1,6 +1,7 @@
 using HoverTrans.Core.Model;
 using HoverTrans.Core.Translation;
 using HoverTrans.Services;
+using HoverTrans.Settings;
 using HoverTrans.ViewModels;
 using HoverTrans.Views;
 using HoverTrans.Views.Pages;
@@ -107,14 +108,115 @@ public class EngineTests
             .ToList();
 
         Assert.Contains("推理后端", texts);
+        Assert.Contains("闲置释放内存", texts);
         Assert.Contains("模型状态", texts);
         Assert.Contains("自动", texts);
         Assert.Contains("仅 CPU", texts);
 
-        Assert.DoesNotContain("闲置退出", texts);
+        var buttons = page.GetVisualDescendants()
+            .OfType<Button>()
+            .Select(Avalonia.Automation.AutomationProperties.GetName)
+            .ToList();
+        Assert.Contains("立即释放模型内存", buttons);
+
         Assert.DoesNotContain("llama-server 路径", texts);
         Assert.DoesNotContain("端口", texts);
         Assert.DoesNotContain("停止模型", texts);
+    }
+
+    [Fact]
+    public void An_idle_timeout_is_optional_and_zero_means_never()
+    {
+        // No timeout at all: the weights stay for the life of the process.
+        Assert.Null(new HunyuanEngineOptions().IdleUnloadValue);
+        Assert.Null(new HunyuanEngineOptions(IdleUnload: TimeSpan.Zero).IdleUnloadValue);
+        Assert.Null(new HunyuanEngineOptions(IdleUnload: TimeSpan.FromSeconds(-1)).IdleUnloadValue);
+
+        // Ten minutes of no translation releases ~3 GB of private memory, so it is the default.
+        Assert.Equal(TimeSpan.FromMinutes(10), new HunyuanEngineOptions(IdleUnload: TimeSpan.FromMinutes(10)).IdleUnloadValue);
+    }
+
+    [Theory]
+    [InlineData(400, 30)]  // a quarter of the timeout, capped at 30 s
+    [InlineData(120, 30)]
+    [InlineData(60, 15)]
+    [InlineData(8, 2)]
+    [InlineData(4, 1)]     // floor of 1 s, so a short timeout still fires soon
+    public void The_idle_check_runs_a_quarter_as_often_as_the_timeout(int timeoutSeconds, int expectedSeconds)
+    {
+        var options = new HunyuanEngineOptions(IdleUnload: TimeSpan.FromSeconds(timeoutSeconds));
+
+        Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), options.IdleCheckInterval);
+    }
+
+    [Fact]
+    public void An_engine_that_never_releases_still_polls_on_a_slow_tick()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(30), new HunyuanEngineOptions().IdleCheckInterval);
+    }
+
+    [Fact]
+    public void The_status_line_says_when_memory_is_released()
+    {
+        var withTimeout = new TranslationService(new HunyuanEngine(
+            new HunyuanEngineOptions(Backend: "cpu", IdleUnload: TimeSpan.FromMinutes(15))));
+        Assert.Contains("闲置 15 分钟后释放内存", withTimeout.StatusText);
+
+        var alwaysLoaded = new TranslationService(new HunyuanEngine(new HunyuanEngineOptions(Backend: "cpu")));
+        Assert.Contains("之后常驻", alwaysLoaded.StatusText);
+    }
+
+    [Fact]
+    public async Task Releasing_a_model_that_was_never_loaded_does_nothing()
+    {
+        await using var engine = new HunyuanEngine(new HunyuanEngineOptions(Backend: "cpu"));
+
+        await engine.UnloadAsync();
+
+        Assert.Equal(EngineState.NotLoaded, engine.State);
+        Assert.False(engine.IsLoaded);
+    }
+
+    /// <summary>
+    /// A fresh engine has loaded nothing, so this only checks the wiring the settings page uses: the
+    /// release command reaches the service and reports what happened.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task The_settings_page_can_release_the_model()
+    {
+        var viewModel = new SettingsPageViewModel(
+            App.Services.GetRequiredService<ITranslationService>(),
+            App.Services.GetRequiredService<AppState>(),
+            App.Services.GetRequiredService<Core.Updates.IUpdateChecker>());
+
+        await viewModel.UnloadModelCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsSaveError);
+        Assert.Contains("释放模型内存", viewModel.SaveStatus);
+    }
+
+    /// <summary>The container is the only place the setting reaches the engine, so it needs its own test.</summary>
+    [AvaloniaFact]
+    public void The_engine_gets_the_idle_timeout_from_the_settings()
+    {
+        var settings = AppSettings.Current;
+        var original = settings.IdleUnloadMinutes;
+        try
+        {
+            settings.IdleUnloadMinutes = 15;
+            var engine = AppServices.Build().GetRequiredService<HunyuanEngine>();
+            Assert.Equal(TimeSpan.FromMinutes(15), engine.IdleUnload);
+
+            // 0 in the settings means "keep it loaded", not "release immediately".
+            settings.IdleUnloadMinutes = 0;
+            var resident = AppServices.Build().GetRequiredService<HunyuanEngine>();
+            Assert.Null(resident.IdleUnload);
+        }
+        finally
+        {
+            settings.IdleUnloadMinutes = original;
+            settings.Save();
+        }
     }
 
     [Fact]
@@ -156,6 +258,88 @@ public class EngineTests
         Assert.Contains("模型已加载", service.StatusText);
         Assert.Contains("你好", progress.Final);
         Assert.True(progress.Deltas > 0);
+    }
+
+    /// <summary>
+    /// Releasing the model must actually give the memory back and the next translation must still work.
+    /// Slow, so it is skipped unless HOVERTRANS_SLOW_TESTS=1.
+    /// </summary>
+    [Fact]
+    public async Task Releasing_the_model_returns_the_memory_and_a_reload_still_translates()
+    {
+        if (Environment.GetEnvironmentVariable("HOVERTRANS_SLOW_TESTS") != "1")
+        {
+            Assert.Skip("需要加载 1.3 GB 权重：设 HOVERTRANS_SLOW_TESTS=1 再跑。");
+        }
+
+        await using var engine = new HunyuanEngine(new HunyuanEngineOptions(Backend: "cpu"));
+        var service = new TranslationService(engine);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await service.TranslateAsync(
+            new TranslationRequest("Hello world", null, "zh-CN"),
+            new RecordingProgress(),
+            cancellationToken);
+
+        var loaded = PrivateMb();
+        await service.UnloadModelAsync(cancellationToken);
+        var released = PrivateMb();
+
+        Assert.False(service.IsModelLoaded);
+        Assert.Equal(EngineState.NotLoaded, engine.State);
+        // The weights are native arenas: disposing them drops private bytes by gigabytes, not megabytes.
+        Assert.True(loaded - released > 1024, $"private memory went from {loaded} MB to {released} MB");
+
+        // The assemblies stay on disk, so the next translation loads them again and works.
+        var progress = new RecordingProgress();
+        await service.TranslateAsync(
+            new TranslationRequest("Good night", null, "zh-CN"),
+            progress,
+            cancellationToken);
+
+        Assert.True(engine.IsLoaded);
+        Assert.False(string.IsNullOrWhiteSpace(progress.Final));
+    }
+
+    /// <summary>
+    /// The automatic part: with a short timeout the weights are released on their own, without a request.
+    /// Slow (it loads twice), so it is skipped unless HOVERTRANS_SLOW_TESTS=1.
+    /// </summary>
+    [Fact]
+    public async Task An_idle_engine_releases_itself()
+    {
+        if (Environment.GetEnvironmentVariable("HOVERTRANS_SLOW_TESTS") != "1")
+        {
+            Assert.Skip("需要加载 1.3 GB 权重：设 HOVERTRANS_SLOW_TESTS=1 再跑。");
+        }
+
+        await using var engine = new HunyuanEngine(
+            new HunyuanEngineOptions(Backend: "cpu", IdleUnload: TimeSpan.FromSeconds(2)));
+        var service = new TranslationService(engine);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        await service.TranslateAsync(
+            new TranslationRequest("Hello world", null, "zh-CN"),
+            new RecordingProgress(),
+            cancellationToken);
+        Assert.True(engine.IsLoaded);
+
+        // The loop checks every second with a 2 s timeout; give it plenty of slack for a loaded machine.
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (service.IsModelLoaded && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(500, cancellationToken);
+        }
+
+        Assert.False(service.IsModelLoaded);
+        Assert.Equal(EngineState.NotLoaded, engine.State);
+    }
+
+    private static long PrivateMb()
+    {
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
+        process.Refresh();
+        return process.PrivateMemorySize64 / 1024 / 1024;
     }
 
     private sealed class RecordingProgress : IProgress<TranslationProgress>

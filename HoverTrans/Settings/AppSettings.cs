@@ -55,6 +55,12 @@ public sealed class AppSettings
     /// </summary>
     public string Backend { get; set; } = "auto";
 
+    /// <summary>
+    /// Minutes without a translation before the model's memory is released, or 0 to keep it loaded.
+    /// Read when the app starts, so a change takes effect on the next start.
+    /// </summary>
+    public int IdleUnloadMinutes { get; set; } = 10;
+
     /// <summary>Whether hover translation is on. Persisted so it survives a restart.</summary>
     public bool HoverEnabled { get; set; }
 

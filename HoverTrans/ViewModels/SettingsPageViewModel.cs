@@ -18,12 +18,16 @@ namespace HoverTrans.ViewModels;
 /// </summary>
 public sealed partial class SettingsPageViewModel : ObservableObject
 {
+    private readonly ITranslationService _translation;
     private readonly IUpdateChecker _updates;
     private Uri? _updateUrl;
     private bool _syncing;
 
     [ObservableProperty]
     private string? _backend;
+
+    [ObservableProperty]
+    private double _idleUnloadMinutes = 10;
 
     [ObservableProperty]
     private double _hoverDelay = 550;
@@ -58,15 +62,18 @@ public sealed partial class SettingsPageViewModel : ObservableObject
 
     public SettingsPageViewModel(ITranslationService translation, AppState state, IUpdateChecker updates)
     {
+        _translation = translation;
         _updates = updates;
         State = state;
 
         var settings = AppSettings.Current;
         _backend = HunyuanEngineOptions.Normalize(settings.Backend);
+        _idleUnloadMinutes = Math.Clamp(settings.IdleUnloadMinutes, 0, 120);
         _hoverDelay = settings.HoverDebounceMilliseconds;
         _motionLevel = ((ArcMotionLevel)Math.Clamp(settings.MotionLevel, 0, 2)).ToString();
         ShowTheme(ArcTheme.State);
         ArcTheme.Manager.StateChanged += (_, e) => ShowTheme(e.NewState);
+        State.PropertyChanged += OnStateChanged;
     }
 
     /// <summary>Hover state, model status and version, shared with the shell.</summary>
@@ -83,6 +90,14 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     public string ModelInfo =>
         "Hy-MT3 1.8B（Q4_K_M，约 1.3 GB）随应用分发，在本进程内推理：不启动外部服务、不占端口、不联网。";
 
+    /// <summary>「0 分钟」 reads better as 「常驻」 than as a zero-length timeout.</summary>
+    public string IdleUnloadText => IdleUnloadMinutes < 0.5
+        ? "常驻，不释放"
+        : $"闲置 {IdleUnloadMinutes:0} 分钟后释放内存";
+
+    /// <summary>Whether the release button can do anything.</summary>
+    public bool CanUnloadModel => State.IsModelLoaded;
+
     /// <summary>Whether the update button can run; greyed out while a check is in flight.</summary>
     public bool CanCheckUpdate => !IsCheckingUpdate;
 
@@ -94,18 +109,31 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     {
         State.RefreshModelStatus();
         OnPropertyChanged(nameof(ModelInfo));
+        OnPropertyChanged(nameof(CanUnloadModel));
     }
 
-    /// <summary>Saves the inference backend, then says when it applies.</summary>
+    /// <summary>Saves the inference backend and the idle timeout, then says when they apply.</summary>
     [RelayCommand]
     private void Save()
     {
         var settings = AppSettings.Current;
         settings.Backend = HunyuanEngineOptions.Normalize(Backend);
+        settings.IdleUnloadMinutes = (int)Math.Clamp(Math.Round(IdleUnloadMinutes), 0, 120);
         settings.Save();
 
         IsSaveError = false;
-        SaveStatus = "已保存。推理后端在下次启动应用后生效。";
+        SaveStatus = "已保存。推理后端和闲置释放时长在下次启动应用后生效。";
+    }
+
+    /// <summary>Releases the model's memory now; the next translation loads it again.</summary>
+    [RelayCommand(CanExecute = nameof(CanUnloadModel))]
+    private async Task UnloadModelAsync()
+    {
+        await _translation.UnloadModelAsync();
+        State.RefreshModelStatus();
+        OnPropertyChanged(nameof(CanUnloadModel));
+        IsSaveError = false;
+        SaveStatus = "已释放模型内存，下次翻译会重新加载（约 2 秒）。";
     }
 
     /// <summary>Opens the folder with the log file.</summary>
@@ -225,6 +253,12 @@ public sealed partial class SettingsPageViewModel : ObservableObject
 
     partial void OnBackendChanged(string? value) => SaveStatus = string.Empty;
 
+    partial void OnIdleUnloadMinutesChanged(double value)
+    {
+        SaveStatus = string.Empty;
+        OnPropertyChanged(nameof(IdleUnloadText));
+    }
+
     partial void OnHoverDelayChanged(double value)
     {
         var settings = AppSettings.Current;
@@ -238,8 +272,16 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         settings.Save();
     }
 
-    private void ShowTheme(ArcThemeState state)
+    /// <summary>Keeps the release button in step with the model the top bar shows.</summary>
+    private void OnStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(AppState.IsModelLoaded))
+        {
+            OnPropertyChanged(nameof(CanUnloadModel));
+        }
+    }
+
+    private void ShowTheme(ArcThemeState state)    {
         _syncing = true;
         Appearance = state.Appearance.ToString();
         Accent = AccentName(state.Accent);
