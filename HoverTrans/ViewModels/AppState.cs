@@ -28,7 +28,7 @@ public sealed partial class AppState : ObservableObject
     private string _modelStatus = string.Empty;
 
     [ObservableProperty]
-    private bool _isModelRunning;
+    private bool _isModelLoaded;
 
     public AppState(IHoverService hover, ITranslationService translation)
     {
@@ -51,11 +51,11 @@ public sealed partial class AppState : ObservableObject
     /// <summary>What hover translation does, or why it cannot be used on this platform.</summary>
     public string HoverHint { get; }
 
-    /// <summary>Short model state for the top bar: running, or started on demand.</summary>
-    public string ModelBadgeText => IsModelRunning ? "模型运行中" : "模型按需启动";
+    /// <summary>Short model state for the top bar: loaded, or waiting for the first translation.</summary>
+    public string ModelBadgeText => IsModelLoaded ? "模型已加载" : "模型按需加载";
 
-    /// <summary>Whether the model is idle (the inverse of <see cref="IsModelRunning"/>, for a binding).</summary>
-    public bool IsModelStopped => !IsModelRunning;
+    /// <summary>Whether the weights are not in memory yet (for the grey dot in the top bar).</summary>
+    public bool IsModelIdle => !IsModelLoaded;
 
     /// <summary>The app version, for the About card.</summary>
     public string Version { get; }
@@ -85,17 +85,17 @@ public sealed partial class AppState : ObservableObject
         }
     }
 
-    /// <summary>Reads the model state now, for a page that has just saved new paths or stopped the model.</summary>
+    /// <summary>Reads the model state now, for a page that has just changed the backend.</summary>
     public void RefreshModelStatus()
     {
-        IsModelRunning = _translation.IsModelRunning;
+        IsModelLoaded = _translation.IsModelLoaded;
         ModelStatus = _translation.StatusText;
     }
 
-    partial void OnIsModelRunningChanged(bool value)
+    partial void OnIsModelLoadedChanged(bool value)
     {
         OnPropertyChanged(nameof(ModelBadgeText));
-        OnPropertyChanged(nameof(IsModelStopped));
+        OnPropertyChanged(nameof(IsModelIdle));
     }
 
     partial void OnHoverEnabledChanged(bool value)    {

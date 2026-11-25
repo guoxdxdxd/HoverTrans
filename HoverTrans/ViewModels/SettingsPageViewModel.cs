@@ -1,7 +1,8 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HoverTrans.Core.Model;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
 using HoverTrans.Core.Updates;
@@ -13,26 +14,16 @@ namespace HoverTrans.ViewModels;
 
 /// <summary>
 /// The settings page. Appearance, accent and motion apply the moment they change (the whole window restyles); the
-/// model paths, port and idle timeout are saved together because they take effect when the app starts again.
+/// inference backend is saved and takes effect the next time the app starts.
 /// </summary>
 public sealed partial class SettingsPageViewModel : ObservableObject
 {
-    private readonly ITranslationService _translation;
     private readonly IUpdateChecker _updates;
     private Uri? _updateUrl;
     private bool _syncing;
 
     [ObservableProperty]
-    private string _serverPath = string.Empty;
-
-    [ObservableProperty]
-    private string _modelPath = string.Empty;
-
-    [ObservableProperty]
-    private string _portText = string.Empty;
-
-    [ObservableProperty]
-    private double _idleMinutes = 10;
+    private string? _backend;
 
     [ObservableProperty]
     private double _hoverDelay = 550;
@@ -53,18 +44,6 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     private bool _isSaveError;
 
     [ObservableProperty]
-    private string _modelStateText = string.Empty;
-
-    [ObservableProperty]
-    private bool _modelFileExists;
-
-    [ObservableProperty]
-    private string _serverStateText = string.Empty;
-
-    [ObservableProperty]
-    private bool _serverFileExists;
-
-    [ObservableProperty]
     private string _updateHint = "点「检查更新」到 GitHub 看有没有新版本。";
 
     [ObservableProperty]
@@ -79,27 +58,15 @@ public sealed partial class SettingsPageViewModel : ObservableObject
 
     public SettingsPageViewModel(ITranslationService translation, AppState state, IUpdateChecker updates)
     {
-        _translation = translation;
         _updates = updates;
         State = state;
 
         var settings = AppSettings.Current;
-        _serverPath = settings.ServerPath;
-        _modelPath = settings.ModelPath;
-        _portText = settings.Port.ToString();
-        _idleMinutes = settings.IdleMinutes;
+        _backend = HunyuanEngineOptions.Normalize(settings.Backend);
         _hoverDelay = settings.HoverDebounceMilliseconds;
         _motionLevel = ((ArcMotionLevel)Math.Clamp(settings.MotionLevel, 0, 2)).ToString();
         ShowTheme(ArcTheme.State);
         ArcTheme.Manager.StateChanged += (_, e) => ShowTheme(e.NewState);
-        State.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(AppState.IsModelRunning))
-            {
-                OnPropertyChanged(nameof(CanStopModel));
-            }
-        };
-        RefreshFileState();
     }
 
     /// <summary>Hover state, model status and version, shared with the shell.</summary>
@@ -109,11 +76,12 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     public IReadOnlyList<string> Accents { get; } =
         ["Neutral", "Violet", "Blue", "Green", "Amber", "Orange", "Coral", "Rose"];
 
-    /// <summary>Where the model, runtime and log files live.</summary>
+    /// <summary>Where the settings, history and log files live.</summary>
     public string DataDirectory => AppPaths.Root;
 
-    /// <summary>Whether the stop button can do anything.</summary>
-    public bool CanStopModel => State.IsModelRunning;
+    /// <summary>What the model is and where it comes from; the settings page shows it above the status.</summary>
+    public string ModelInfo =>
+        "Hy-MT3 1.8B（Q4_K_M，约 1.3 GB）随应用分发，在本进程内推理：不启动外部服务、不占端口、不联网。";
 
     /// <summary>Whether the update button can run; greyed out while a check is in flight.</summary>
     public bool CanCheckUpdate => !IsCheckingUpdate;
@@ -121,50 +89,26 @@ public sealed partial class SettingsPageViewModel : ObservableObject
     /// <summary>The version this build reports, so "已是最新" has a number next to it.</summary>
     public string CurrentVersion => AppVersion.Display;
 
-    /// <summary>Reads the model file state and the model process again; called when the page is shown.</summary>
+    /// <summary>Reads the model state again; called when the page is shown.</summary>
     public void Refresh()
     {
-        RefreshFileState();
         State.RefreshModelStatus();
-        OnPropertyChanged(nameof(CanStopModel));
+        OnPropertyChanged(nameof(ModelInfo));
     }
 
-    /// <summary>Saves the model settings, then says what happened.</summary>
+    /// <summary>Saves the inference backend, then says when it applies.</summary>
     [RelayCommand]
     private void Save()
     {
         var settings = AppSettings.Current;
-
-        if (!int.TryParse(PortText, out var port) || port is < 1024 or > 65535)
-        {
-            IsSaveError = true;
-            SaveStatus = "端口要在 1024 到 65535 之间，换一个再保存。";
-            return;
-        }
-
-        settings.ServerPath = ServerPath.Trim();
-        settings.ModelPath = ModelPath.Trim();
-        settings.Port = port;
-        settings.IdleMinutes = Math.Clamp((int)Math.Round(IdleMinutes), 1, 120);
+        settings.Backend = HunyuanEngineOptions.Normalize(Backend);
         settings.Save();
 
         IsSaveError = false;
-        SaveStatus = "已保存。模型路径、端口和闲置时长在下次启动应用时生效。";
-        RefreshFileState();
+        SaveStatus = "已保存。推理后端在下次启动应用后生效。";
     }
 
-    /// <summary>Stops the model now; the next translation starts it again.</summary>
-    [RelayCommand]
-    private async Task StopModelAsync()
-    {
-        await _translation.StopModelAsync();
-        State.RefreshModelStatus();
-        OnPropertyChanged(nameof(CanStopModel));
-        IsSaveError = false;
-        SaveStatus = "模型已停止，下次翻译会自动重新启动。";
-    }
-
-    /// <summary>Opens the folder with the downloaded model and the llama-server log.</summary>
+    /// <summary>Opens the folder with the log file.</summary>
     [RelayCommand]
     private void OpenDataFolder()
     {
@@ -279,9 +223,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         AppSettings.Current.Save();
     }
 
-    partial void OnPortTextChanged(string value) => SaveStatus = string.Empty;
-
-    partial void OnIdleMinutesChanged(double value) => SaveStatus = string.Empty;
+    partial void OnBackendChanged(string? value) => SaveStatus = string.Empty;
 
     partial void OnHoverDelayChanged(double value)
     {
@@ -316,19 +258,6 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         }
 
         return null;
-    }
-
-    private void RefreshFileState()
-    {
-        ModelFileExists = File.Exists(AppSettings.Current.ModelPath);
-        ModelStateText = ModelFileExists
-            ? "模型文件已就绪"
-            : "还没有模型文件：运行 scripts/setup-model.ps1 下载 Hy-MT2 1.8B。";
-
-        ServerFileExists = File.Exists(AppSettings.Current.ServerPath);
-        ServerStateText = ServerFileExists
-            ? "llama-server 已就绪"
-            : "还没有 llama-server：同一脚本会一起下载。";
     }
 
     private static bool TryParseAppearance(string? value, out ArcAppearance appearance)

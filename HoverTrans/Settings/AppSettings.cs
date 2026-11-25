@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Avalonia.Controls;
 using Avalonia.Media;
-using HoverTrans.Core.Platform;
 using TKCode.Arc;
 using TKCode.Arc.Motion;
 
@@ -50,17 +49,11 @@ public sealed class AppSettings
     /// <summary>The main window's size and position when it was last closed, or null before the first close.</summary>
     public WindowPlacement? Window { get; set; }
 
-    /// <summary>llama-server executable. Downloaded by scripts/setup-model.ps1 by default.</summary>
-    public string ServerPath { get; set; } = AppPaths.DefaultServerPath;
-
-    /// <summary>Hy-MT2 GGUF model. Downloaded by scripts/setup-model.ps1 by default.</summary>
-    public string ModelPath { get; set; } = AppPaths.DefaultModelPath;
-
-    /// <summary>Local port for llama-server; change it if 18080 is already taken.</summary>
-    public int Port { get; set; } = 18080;
-
-    /// <summary>Minutes without a translation before the model process is stopped.</summary>
-    public int IdleMinutes { get; set; } = 10;
+    /// <summary>
+    /// Which backend the in-process model uses: "auto" (a usable GPU, else the CPU), "cpu" or "vulkan".
+    /// Read when the app starts, so a change takes effect on the next start.
+    /// </summary>
+    public string Backend { get; set; } = "auto";
 
     /// <summary>Whether hover translation is on. Persisted so it survives a restart.</summary>
     public bool HoverEnabled { get; set; }

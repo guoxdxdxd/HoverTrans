@@ -10,6 +10,7 @@ using HoverTrans.Core.Model;
 using HoverTrans.Core.Platform;
 using HoverTrans.Core.Translation;
 using HoverTrans.Services;
+using HoverTrans.Settings;
 using HoverTrans.ViewModels;
 using HoverTrans.Views;
 using Xunit;
@@ -96,10 +97,27 @@ public class CoreTests
     }
 
     [Fact]
-    public void Model_defaults_to_ten_minutes_idle()
+    public void Settings_from_the_llama_cpp_era_still_load()
     {
-        var options = new LlamaServerOptions("server", "model");
-        Assert.Equal(TimeSpan.FromMinutes(10), options.IdleTimeoutValue);
+        // People upgrading have settings.json with fields this version no longer knows (paths, port,
+        // idle minutes). Unknown fields are ignored, so nothing is lost and nothing crashes.
+        const string json = """
+            {
+              "ServerPath": "D:\\HoverTrans\\runtime\\llama-server.exe",
+              "ModelPath": "D:\\HoverTrans\\models\\Hy-MT2-1.8B-Q4_K_M.gguf",
+              "Port": 18080,
+              "IdleMinutes": 10,
+              "HoverEnabled": true,
+              "TargetLanguage": "ja"
+            }
+            """;
+
+        var settings = AppSettings.Load(new MemorySettingsStore { Json = json });
+
+        Assert.Equal("auto", settings.Backend);
+        Assert.True(settings.HoverEnabled);
+        Assert.Equal("ja", settings.TargetLanguage);
+        Assert.Equal(550, settings.HoverDebounceMilliseconds);
     }
 
     [AvaloniaFact]
@@ -244,7 +262,7 @@ public class CoreTests
     {
         public string StatusText => "测试模型";
 
-        public bool IsModelRunning => true;
+        public bool IsModelLoaded => true;
 
         /// <summary>The last request the page sent, so tests can check what it asked for.</summary>
         public TranslationRequest? LastRequest { get; private set; }
@@ -260,8 +278,6 @@ public class CoreTests
             progress?.Report(TranslationProgress.Completed("你好"));
             return Task.CompletedTask;
         }
-
-        public Task StopModelAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeOcrService : IOcrService

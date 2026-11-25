@@ -128,13 +128,13 @@
                                         CornerRadius="4"
                                         VerticalAlignment="Center"
                                         Background="{arc:ArcDesignTokenResource Success}"
-                                        IsVisible="{Binding State.IsModelRunning}" />
+                                        IsVisible="{Binding State.IsModelLoaded}" />
                                 <Border Width="7"
                                         Height="7"
                                         CornerRadius="4"
                                         VerticalAlignment="Center"
                                         Background="{arc:ArcDesignTokenResource TextMuted}"
-                                        IsVisible="{Binding State.IsModelStopped}" />
+                                        IsVisible="{Binding State.IsModelIdle}" />
                                 <TextBlock Text="{Binding State.ModelBadgeText}"
                                            FontSize="{arc:ArcDesignTokenResource TypeXS}"
                                            Foreground="{arc:ArcDesignTokenResource TextSecondary}"

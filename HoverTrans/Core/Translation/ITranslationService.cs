@@ -3,20 +3,18 @@ namespace HoverTrans.Core.Translation;
 /// <summary>The translation pipeline used by the UI and by hover mode.</summary>
 public interface ITranslationService
 {
-    /// <summary>A short, localized description of the model process state.</summary>
+    /// <summary>A short, localized description of the local model state.</summary>
     string StatusText { get; }
 
-    bool IsModelRunning { get; }
+    /// <summary>Whether the model weights are loaded and translations need no warm-up.</summary>
+    bool IsModelLoaded { get; }
 
     /// <summary>
-    /// Ensures the model is running, translates <paramref name="request"/> and reports
+    /// Ensures the model is loaded, translates <paramref name="request"/> and reports
     /// incremental text through <paramref name="progress"/>.
     /// </summary>
     Task TranslateAsync(
         TranslationRequest request,
         IProgress<TranslationProgress>? progress,
         CancellationToken cancellationToken);
-
-    /// <summary>Stops the model process now (it will be started again on the next request).</summary>
-    Task StopModelAsync(CancellationToken cancellationToken = default);
 }

@@ -54,6 +54,6 @@ public class App : Application
         Services.GetRequiredService<MainViewModel>().Dispose();
         Services.GetRequiredService<HoverWindowManager>().Dispose();
         _ = Services.GetRequiredService<IHoverService>().DisposeAsync();
-        _ = Services.GetRequiredService<LlamaServerManager>().DisposeAsync();
+        _ = Services.GetRequiredService<HunyuanEngine>().DisposeAsync();
     }
 }

@@ -1,6 +1,9 @@
 namespace HoverTrans.Core.Platform;
 
-/// <summary>Where the app keeps downloaded runtimes, models and logs.</summary>
+/// <summary>
+/// Where the app keeps its settings, history and logs. The model no longer lives here: it ships inside
+/// the app (the <c>Sdcb.GgufWeights.Hy-MT3-1.8B-Q4_K_M</c> assemblies) instead of being downloaded.
+/// </summary>
 public static class AppPaths
 {
     public static string Root { get; } = Path.Combine(
@@ -9,25 +12,10 @@ public static class AppPaths
             Environment.SpecialFolderOption.DoNotVerify),
         "HoverTrans");
 
-    public static string Models => Path.Combine(Root, "models");
-
-    public static string Runtime => Path.Combine(Root, "runtime");
-
     public static string Logs => Path.Combine(Root, "logs");
 
-    public static string LlamaLog => Path.Combine(Logs, "llama-server.log");
+    /// <summary>What the in-process model did: load time, backend, fallbacks and failures. No text.</summary>
+    public static string EngineLog => Path.Combine(Logs, "engine.log");
 
-    public static string DefaultServerPath => Path.Combine(
-        Runtime,
-        OperatingSystem.IsWindows() ? "llama-server.exe" : "llama-server");
-
-    public static string DefaultModelPath => Path.Combine(Models, "Hy-MT2-1.8B-Q4_K_M.gguf");
-
-    public static void EnsureCreated()
-    {
-        Directory.CreateDirectory(Root);
-        Directory.CreateDirectory(Models);
-        Directory.CreateDirectory(Runtime);
-        Directory.CreateDirectory(Logs);
-    }
+    public static void EnsureCreated() => Directory.CreateDirectory(Logs);
 }

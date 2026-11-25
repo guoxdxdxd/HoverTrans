@@ -31,16 +31,12 @@ public static class AppServices
         var services = new ServiceCollection();
         var settings = AppSettings.Current;
 
-        services.AddSingleton(new LlamaServerOptions(
-            settings.ServerPath,
-            settings.ModelPath,
-            settings.Port,
-            ContextSize: 4096,
-            GpuLayers: 99,
-            IdleTimeout: TimeSpan.FromMinutes(Math.Clamp(settings.IdleMinutes, 1, 120))));
+        services.AddSingleton(new HunyuanEngineOptions(
+            Backend: settings.Backend,
+            Threads: 0,
+            MaxTokens: 2048));
 
-        services.AddSingleton<LlamaServerManager>();
-        services.AddSingleton<LlamaTranslationClient>();
+        services.AddSingleton<HunyuanEngine>();
         services.AddSingleton<ITranslationService, TranslationService>();
 
         // One client for the update check: no cookies, a timeout the person would not sit through.

@@ -4,28 +4,25 @@ using HoverTrans.Core.Translation;
 
 namespace HoverTrans.Services;
 
-/// <summary>The translation pipeline: start the model on demand, translate, then let it go idle.</summary>
+/// <summary>
+/// The translation pipeline: split the text, load the local model on first use, translate one chunk at
+/// a time and stream the growing text back.
+/// </summary>
 public sealed class TranslationService : ITranslationService
 {
-    private readonly LlamaServerManager _server;
-    private readonly LlamaTranslationClient _client;
+    private readonly HunyuanEngine _engine;
 
-    public TranslationService(LlamaServerManager server, LlamaTranslationClient client)
-    {
-        _server = server;
-        _client = client;
-    }
+    public TranslationService(HunyuanEngine engine) => _engine = engine;
 
-    public string StatusText => _server.State switch
+    public string StatusText => _engine.State switch
     {
-        LlamaServerState.Running => "模型运行中",
-        LlamaServerState.Starting => "模型启动中…",
-        LlamaServerState.Stopping => "模型停止中…",
-        LlamaServerState.Failed => "模型异常：" + (_server.LastError ?? "未知错误"),
-        _ => "模型未启动（首次翻译时自动启动）"
+        EngineState.Ready => $"模型已加载（{HunyuanEngine.ModelId} · {_engine.BackendName} · {_engine.LoadTime.TotalSeconds:0.0} 秒）",
+        EngineState.Loading => "模型加载中…（首次翻译要读约 1.3 GB 权重）",
+        EngineState.Failed => "模型加载失败：" + (_engine.LastError ?? "未知错误"),
+        _ => "模型未加载（首次翻译时加载）"
     };
 
-    public bool IsModelRunning => _server.State == LlamaServerState.Running;
+    public bool IsModelLoaded => _engine.IsLoaded;
 
     public async Task TranslateAsync(
         TranslationRequest request,
@@ -44,14 +41,12 @@ public sealed class TranslationService : ITranslationService
             throw new ArgumentException("请选择目标语言。", nameof(request));
         }
 
-        using var lease = _server.EnterRequest();
-
-        if (_server.State != LlamaServerState.Running)
+        if (!_engine.IsLoaded)
         {
             progress?.Report(TranslationProgress.StartingModel());
         }
 
-        await _server.EnsureStartedAsync(cancellationToken).ConfigureAwait(false);
+        await _engine.EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(TranslationProgress.Translating());
 
         var chunks = TextChunker.Split(request.Text);
@@ -67,18 +62,16 @@ public sealed class TranslationService : ITranslationService
                 request.TargetLanguage,
                 request.Style);
 
-            var chunkBuilder = new StringBuilder();
-            await foreach (var delta in _client
-                               .StreamAsync(_server.BaseUrl, _server.ApiKey, prompt, cancellationToken)
-                               .ConfigureAwait(false))
+            var chunkText = string.Empty;
+            await foreach (var text in _engine.StreamAsync(prompt, cancellationToken).ConfigureAwait(false))
             {
-                chunkBuilder.Append(delta);
-                progress?.Report(TranslationProgress.Delta(Combine(result, chunkBuilder)));
+                chunkText = text;
+                progress?.Report(TranslationProgress.Delta(Combine(result, chunkText)));
             }
 
-            if (chunkBuilder.Length == 0)
+            if (chunkText.Length == 0)
             {
-                throw new InvalidOperationException("模型没有返回译文，请检查模型是否正常加载。");
+                throw new InvalidOperationException("模型没有返回译文，请检查本地模型是否正常加载。");
             }
 
             if (result.Length > 0)
@@ -86,7 +79,7 @@ public sealed class TranslationService : ITranslationService
                 result.Append('\n');
             }
 
-            result.Append(chunkBuilder.ToString().Trim());
+            result.Append(chunkText.Trim());
             progress?.Report(TranslationProgress.Delta(result.ToString()));
         }
 
@@ -94,16 +87,13 @@ public sealed class TranslationService : ITranslationService
         progress?.Report(TranslationProgress.Completed(final));
     }
 
-    public Task StopModelAsync(CancellationToken cancellationToken = default) =>
-        _server.StopAsync(cancellationToken);
-
-    private static string Combine(StringBuilder previous, StringBuilder current)
+    private static string Combine(StringBuilder previous, string current)
     {
         if (previous.Length == 0)
         {
-            return current.ToString().TrimEnd();
+            return current.TrimEnd();
         }
 
-        return previous.ToString() + "\n" + current.ToString().TrimEnd();
+        return previous.ToString() + "\n" + current.TrimEnd();
     }
 }

@@ -72,7 +72,7 @@ public class ImageInputTests
     {
         public string StatusText => "测试模型";
 
-        public bool IsModelRunning => true;
+        public bool IsModelLoaded => true;
 
         public Task TranslateAsync(
             TranslationRequest request,
@@ -82,7 +82,5 @@ public class ImageInputTests
             progress?.Report(TranslationProgress.Completed("你好"));
             return Task.CompletedTask;
         }
-
-        public Task StopModelAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

@@ -195,6 +195,33 @@ public class UpdateCheckerTests
 
     // ---------- the settings page ----------
 
+    /// <summary>The inference backend is the one model setting left, and the save button is what persists it.</summary>
+    [AvaloniaFact]
+    public void The_settings_page_saves_the_inference_backend()
+    {
+        var settings = HoverTrans.Settings.AppSettings.Current;
+        var original = settings.Backend;
+        try
+        {
+            var viewModel = new SettingsPageViewModel(
+                App.Services.GetRequiredService<Core.Translation.ITranslationService>(),
+                App.Services.GetRequiredService<AppState>(),
+                App.Services.GetRequiredService<IUpdateChecker>());
+
+            viewModel.Backend = "vulkan";
+            viewModel.SaveCommand.Execute(null);
+
+            Assert.Equal("vulkan", settings.Backend);
+            Assert.False(viewModel.IsSaveError);
+            Assert.Contains("下次启动", viewModel.SaveStatus);
+        }
+        finally
+        {
+            settings.Backend = original;
+            settings.Save();
+        }
+    }
+
     [AvaloniaFact]
     public async Task Checking_from_the_settings_page_reports_the_newer_version()
     {
