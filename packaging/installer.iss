@@ -9,10 +9,10 @@
 ;
 ; 设计取舍（详见 packaging/README.md）：
 ;   * 按用户安装到 %LOCALAPPDATA%\Programs\HoverTrans，不需要管理员：托盘常驻的小工具不该弹 UAC。
-;   * llama.cpp 运行时（约 40 MB）随安装包分发，解到 %LOCALAPPDATA%\HoverTrans\runtime ——
-;     这是应用默认查找的位置，装完即用。
-;   * 模型 1.1 GB 不塞进安装包：体积、GitHub Release 限制、模型许可证与更新频率都不划算。
-;     改成安装最后一步调用 deploy-model.ps1 下载 + 校验，装完即可翻译。
+;   * 模型权重（Hy-MT3 1.8B Q4_K_M，约 1.35 GB）随应用本体分发：推理在进程内，权重就是应用的
+;     一部分（Sdcb.GgufWeights 的 6 个程序集），没有可后补的「模型文件」，也没有安装时的下载步骤。
+;     代价是安装包从 67 MB 涨到约 1.3 GB；这是把 llama.cpp 换掉、去掉外部进程换来的。
+;   * 因此压缩用 lzma2/fast、不做 solid：GGUF 权重几乎不可压缩，max 要慢十几倍却只省几个百分点。
 
 #ifexist "installer.generated.iss"
   #include "installer.generated.iss"
@@ -24,10 +24,6 @@
 
 #ifndef PayloadDir
   #define PayloadDir "..\artifacts\win-x64"
-#endif
-
-#ifndef RuntimePayloadDir
-  #define RuntimePayloadDir "..\artifacts\llama-runtime"
 #endif
 
 #ifndef OutputDir
@@ -55,8 +51,8 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#OutputDir}
 OutputBaseFilename=HoverTrans-{#AppVersion}-win-x64-setup
-Compression=lzma2/max
-SolidCompression=yes
+Compression=lzma2/fast
+SolidCompression=no
 WizardStyle=modern
 ; 与 HoverTrans.csproj 的 SupportedOSPlatformVersion 一致：Windows 10 1809 起。
 MinVersion=10.0.17763
@@ -76,21 +72,14 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务："; Flags: unchecked
-Name: "downloadmodel"; Description: "下载本地翻译模型 Hy-MT2 1.8B（约 1.1 GB，需要联网）"; GroupDescription: "本地模型："
 
 [Files]
-; 应用本体：dotnet publish 的自包含单文件输出（HoverTrans.exe 加它自解压需要的原生库）。
-; 原生包会带 .pdb，只用于调试，不打进安装包。
+; 应用本体：dotnet publish 的 self-contained 输出（HoverTrans.exe、原生库，以及约 1.35 GB 的模型权重
+; 程序集）。.pdb 只用于调试，不打进安装包。
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,*.xml"; Flags: ignoreversion recursesubdirs createallsubdirs
-; llama.cpp 运行时：放到应用默认查找的 %LOCALAPPDATA%\HoverTrans\runtime，装完无需再下。
-#ifndef NoBundledRuntime
-Source: "{#RuntimePayloadDir}\*"; DestDir: "{localappdata}\HoverTrans\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
-#endif
-; 模型部署脚本与校验清单：安装时由 [Run] 调用，之后用户也能自己重跑（换 GPU 版本、补下载）。
-Source: "deploy-model.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "model-manifest.json"; DestDir: "{app}"; Flags: ignoreversion
-; 第三方许可：应用 MIT、llama.cpp MIT、模型 Apache-2.0。
+; 第三方许可：应用 MIT、Sdcb.HyMT2Sharp 与推理内核 Apache-2.0、模型权重 Apache-2.0。
 Source: "{#RepoRoot}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#RepoRoot}\packaging\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\悬译 HoverTrans"; Filename: "{app}\HoverTrans.exe"
@@ -98,29 +87,7 @@ Name: "{group}\卸载 悬译 HoverTrans"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\悬译 HoverTrans"; Filename: "{app}\HoverTrans.exe"; Tasks: desktopicon
 
 [Run]
-; 模型自动部署：可见的 PowerShell 窗口里显示下载进度，装完就能翻译。
-; 已经存在完整模型时 ShouldDeployModel 会返回 False，跳过这一步。
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-NoLogo -NoProfile -ExecutionPolicy Bypass -File ""{app}\deploy-model.ps1"" -RuntimeDir ""{localappdata}\HoverTrans\runtime"" -ModelDir ""{localappdata}\HoverTrans\models"""; \
-  WorkingDir: "{app}"; StatusMsg: "正在准备本地翻译模型（约 1.1 GB）……"; \
-  Flags: waituntilterminated skipifsilent; Check: ShouldDeployModel
-; 静默安装（/VERYSILENT）不下载模型：批量部署请自己调用 deploy-model.ps1。
 Filename: "{app}\HoverTrans.exe"; Description: "立即运行 悬译 HoverTrans"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; 运行时是安装包铺下来的派生物，卸载时清掉；模型目录故意保留 —— 重新下载 1.1 GB 太贵。
-Type: filesandordirs; Name: "{localappdata}\HoverTrans\runtime"
-
-[Code]
-function ModelFilePresent: Boolean;
-var
-  ModelPath: String;
-begin
-  ModelPath := ExpandConstant('{localappdata}\HoverTrans\models\Hy-MT2-1.8B-Q4_K_M.gguf');
-  Result := FileExists(ModelPath);
-end;
-
-function ShouldDeployModel: Boolean;
-begin
-  Result := WizardIsTaskSelected('downloadmodel') and not ModelFilePresent;
-end;
+; 应用数据（设置、历史、日志）故意保留：重装后设置和历史还在，那些文件也很小。

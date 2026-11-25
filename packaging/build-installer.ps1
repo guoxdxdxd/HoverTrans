@@ -1,34 +1,23 @@
-﻿#!/usr/bin/env powershell
-<#
+﻿<#
 .SYNOPSIS
     Builds the Windows installer (HoverTrans-<version>-win-x64-setup.exe) for HoverTrans.
 
 .DESCRIPTION
-    Three steps, each skippable:
+    Two steps, each skippable:
 
-      1. dotnet publish  -> artifacts\win-x64        (self-contained, single file, win-x64)
-      2. llama.cpp zip    -> artifacts\llama-runtime  (the runtime the installer ships)
-      3. ISCC installer.iss -> artifacts\installer\HoverTrans-<version>-win-x64-setup.exe
+      1. dotnet publish  -> artifacts\win-x64   (self-contained, win-x64; the model weights ship here)
+      2. ISCC installer.iss -> artifacts\installer\HoverTrans-<version>-win-x64-setup.exe
 
-    The model is deliberately not part of the installer: the installer runs deploy-model.ps1 after
-    copying the files, which downloads and verifies it on the user's machine (see packaging\README.md).
+    The model is part of the app now: inference runs in-process (Sdcb.HyMT2Sharp) and the weights come
+    from the Sdcb.GgufWeights.Hy-MT3-1.8B-Q4_K_M package, so publish output is ~1.4 GB and the installer
+    is ~1.3 GB. There is no runtime to download and no model download step any more.
+
+    Publish is deliberately NOT single-file: bundling 1.3 GB of assemblies into one exe only makes the
+    first start extract them again. A folder publish installs straight into %LOCALAPPDATA%.
 
 .PARAMETER Version
     Version shown in the installer and the file name. Defaults to `git describe --tags --always`,
     falling back to 0.1.0 when git is unavailable.
-
-.PARAMETER RuntimeVariant
-    llama.cpp build to bundle: cpu (default, runs everywhere), cuda, vulkan.
-
-.PARAMETER LlamaTag
-    llama.cpp release tag, e.g. b12662. Defaults to the tag in packaging\model-manifest.json.
-
-.PARAMETER RuntimeSource
-    Reuse an existing llama.cpp folder (the one holding llama-server.exe) instead of downloading.
-
-.PARAMETER SkipRuntime
-    Do not bundle a runtime. The installer then only installs the app, and deploy-model.ps1
-    fetches llama-server on the user's machine together with the model.
 
 .PARAMETER SkipPublish
     Reuse artifacts\win-x64 from a previous run (fast iteration on installer.iss only).
@@ -40,16 +29,11 @@
     pwsh -File .\packaging\build-installer.ps1
 
 .EXAMPLE
-    pwsh -File .\packaging\build-installer.ps1 -Version 0.2.0 -RuntimeVariant cuda
+    pwsh -File .\packaging\build-installer.ps1 -Version 0.2.0
 #>
 [CmdletBinding()]
 param(
     [string]$Version = '',
-    [ValidateSet('cpu', 'cuda', 'vulkan')]
-    [string]$RuntimeVariant = 'cpu',
-    [string]$LlamaTag = '',
-    [string]$RuntimeSource = '',
-    [switch]$SkipRuntime,
     [switch]$SkipPublish,
     [string]$Iscc = ''
 )
@@ -61,7 +45,6 @@ $packagingDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $packagingDir
 $artifacts = Join-Path $repoRoot 'artifacts'
 $payload = Join-Path $artifacts 'win-x64'
-$runtimePayload = Join-Path $artifacts 'llama-runtime'
 $outputDir = Join-Path $artifacts 'installer'
 
 function Format-Step {
@@ -114,17 +97,18 @@ function Resolve-Iscc {
 function Invoke-Publish {
     param([string]$PublishVersion)
 
-    Format-Step "dotnet publish (win-x64, self-contained, single file, 版本 $PublishVersion)"
+    Format-Step "dotnet publish (win-x64, self-contained, 版本 $PublishVersion)"
     if (Test-Path -LiteralPath $payload) { Remove-Item -LiteralPath $payload -Recurse -Force }
 
     # -p:Version 进的是应用自己的版本号；「检查更新」拿它和 GitHub 上最新 release 的 tag 比，
     # 所以这里必须是干净的 0.1.0，不能是 git describe 的 0.1.0-11-g778f5aa。
+    # 不开 PublishSingleFile：1.3 GB 的模型程序集打进单文件只会让首次启动再把它们解出来。
     & dotnet publish (Join-Path $repoRoot 'HoverTrans\HoverTrans.csproj') `
         -f net11.0-windows10.0.19041.0 `
         -c Release `
         -r win-x64 `
         --self-contained true `
-        -p:PublishSingleFile=true `
+        -p:PublishSingleFile=false `
         -p:DebugType=None `
         -p:DebugSymbols=false `
         -p:Version=$PublishVersion `
@@ -133,50 +117,13 @@ function Invoke-Publish {
 
     $exe = Join-Path $payload 'HoverTrans.exe'
     if (-not (Test-Path -LiteralPath $exe)) { throw "发布输出里没有 HoverTrans.exe：$payload" }
-    Write-Host "    -> $exe" -ForegroundColor Green
-}
 
-function Install-RuntimePayload {
-    Format-Step "llama.cpp 运行时（$RuntimeVariant）"
+    # 少了权重程序集也不会报错，只会在第一次翻译时加载失败：在这里就挡住。
+    $weights = @(Get-ChildItem -LiteralPath $payload -Filter 'Sdcb.GgufWeights.Hy-MT3-1.8B-Q4_K_M*.dll')
+    if ($weights.Count -eq 0) { throw "发布输出里没有 Hy-MT3 权重程序集：$payload" }
 
-    if ($RuntimeSource) {
-        if (-not (Test-Path -LiteralPath (Join-Path $RuntimeSource 'llama-server.exe'))) {
-            throw "RuntimeSource 里没有 llama-server.exe：$RuntimeSource"
-        }
-        if (Test-Path -LiteralPath $runtimePayload) { Remove-Item -LiteralPath $runtimePayload -Recurse -Force }
-        New-Item -ItemType Directory -Force -Path $runtimePayload | Out-Null
-        Copy-Item -Path (Join-Path $RuntimeSource '*') -Destination $runtimePayload -Recurse -Force
-        Write-Host "    <- $RuntimeSource" -ForegroundColor Green
-        return
-    }
-
-    if (-not $LlamaTag) {
-        $manifestPath = Join-Path $packagingDir 'model-manifest.json'
-        if (Test-Path -LiteralPath $manifestPath) {
-            # Windows PowerShell 5.1 默认按 ANSI 读无 BOM 文件，中文会变乱码并破坏 JSON：显式指定 UTF8。
-            $manifestData = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($manifestData.llama -and $manifestData.llama.tag) { $LlamaTag = "$($manifestData.llama.tag)" }
-        }
-    }
-
-    # 复用部署脚本：它知道 llama.cpp 的资产名带版本号（cuda 还要额外的 cudart 包），
-    # 这样「构建时内置」和「安装时下载」共用一套下载逻辑，不会各走各的漂移。
-    if (Test-Path -LiteralPath $runtimePayload) { Remove-Item -LiteralPath $runtimePayload -Recurse -Force }
-
-    $deployArgs = @{
-        RuntimeDir = $runtimePayload
-        Variant    = $RuntimeVariant
-        SkipModel  = $true
-        Force      = $true
-    }
-    if ($LlamaTag) { $deployArgs['LlamaTag'] = $LlamaTag }
-
-    & (Join-Path $packagingDir 'deploy-model.ps1') @deployArgs
-    if ($LASTEXITCODE -ne 0) { throw "取 llama.cpp 运行时失败（退出码 $LASTEXITCODE）。" }
-    if (-not (Test-Path -LiteralPath (Join-Path $runtimePayload 'llama-server.exe'))) {
-        throw "运行时目录里没有 llama-server.exe：$runtimePayload"
-    }
-    Write-Host "    -> $runtimePayload" -ForegroundColor Green
+    $sizeMb = [math]::Round(((Get-ChildItem -LiteralPath $payload -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 0)
+    Write-Host "    -> $exe（$sizeMb MB，含 $($weights.Count) 个权重程序集）" -ForegroundColor Green
 }
 
 function Write-InstallerDefinitions {
@@ -188,11 +135,9 @@ function Write-InstallerDefinitions {
         '; 由 packaging/build-installer.ps1 生成：不要手改，也不要提交（.gitignore 已忽略）。'
         "#define AppVersion `"$ResolvedVersion`""
         "#define PayloadDir `"$payload`""
-        "#define RuntimePayloadDir `"$runtimePayload`""
         "#define OutputDir `"$outputDir`""
         "#define RepoRoot `"$repoRoot`""
     )
-    if ($SkipRuntime) { $lines += '#define NoBundledRuntime' }
 
     $chinese = Join-Path $packagingDir 'ChineseSimplified.isl'
     if (Test-Path -LiteralPath $chinese) { $lines += "#define ChineseIsl `"$chinese`"" }
@@ -227,9 +172,6 @@ if (-not $SkipPublish) { Invoke-Publish -PublishVersion $publishVersion }
 elseif (-not (Test-Path -LiteralPath (Join-Path $payload 'HoverTrans.exe'))) {
     throw "跳过了发布，但 $payload 里没有 HoverTrans.exe。"
 }
-
-if (-not $SkipRuntime) { Install-RuntimePayload }
-else { Write-Host '（跳过 llama.cpp 运行时：安装后由 deploy-model.ps1 下载）' -ForegroundColor DarkGray }
 
 Invoke-Iscc -ResolvedVersion $resolvedVersion
 

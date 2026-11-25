@@ -42,10 +42,11 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        # 不含 llama.cpp 运行时（-SkipRuntime）：CI 只验证安装包能打出来，发布包由 release.yml 带运行时。
+        # 安装包含了约 1.3 GB 的模型权重程序集（推理在进程内）：这一步同时验证发布输出里
+        # 权重是齐的，少一个程序集第一次翻译就会失败。
         run: |
           Start-Transcript -Path installer-build.log
-          try { ./packaging/build-installer.ps1 -SkipRuntime } finally { Stop-Transcript }
+          try { ./packaging/build-installer.ps1 } finally { Stop-Transcript }
 
       - uses: actions/upload-artifact@v4
         if: always()

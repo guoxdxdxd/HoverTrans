@@ -1,0 +1,43 @@
+悬译 HoverTrans —— 第三方组件与许可
+====================================
+
+本应用以 MIT 许可开源（见 LICENSE）。运行时还包含下列第三方组件。
+
+1. Sdcb.HyMT2Sharp 2.0.0
+   Apache License 2.0
+   https://github.com/sdcb/HyMT2Sharp
+   纯 C# 的 Hy-MT3 / Hy-MT2（hunyuan-dense）推理实现：GGUF 读取、分词、KV cache、
+   CPU SIMD 内核，以及可选的 Vulkan / Metal 后端。
+
+2. 腾讯混元翻译模型 Hy-MT3-1.8B-Q4_K_M
+   Apache License 2.0
+   https://huggingface.co/tencent/Hy-MT3-1.8B-GGUF
+   权重以 Sdcb.GgufWeights.Hy-MT3-1.8B-Q4_K_M（及 Part2–Part6）NuGet 包的形式随本应用分发，
+   共约 1.35 GB。模型由腾讯发布，本项目只做本地推理与界面。
+
+3. Avalonia 12（含 Avalonia.Desktop、Avalonia.Fonts.Inter）
+   MIT License
+   https://github.com/AvaloniaUI/Avalonia
+
+4. TKCode.Arc（含 Arc.Blocks、Arc.Fonts、Arc.Icons.Lucide）
+   MIT License
+   https://github.com/AIDotNet/TKCode.Arc
+
+5. CommunityToolkit.Mvvm
+   MIT License
+   https://github.com/CommunityToolkit/dotnet
+
+6. Microsoft.Extensions.DependencyInjection
+   MIT License
+   https://github.com/dotnet/runtime
+
+7. FlaUI.UIA3（仅 Windows 构建）
+   MIT License
+   https://github.com/FlaUI/FlaUI
+
+8. Lucide 图标
+   ISC License
+   https://lucide.dev
+
+另：本项目早期版本用 llama.cpp（MIT）驱动 Hy-MT2 模型；自 2026-11-25 起推理改为进程内进行，
+llama.cpp 运行时与外部模型文件都不再随包分发。
