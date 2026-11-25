@@ -41,7 +41,7 @@
                         HorizontalAlignment="Left">
 
                 <arc:SettingsGroup Header="本地模型"
-                                   Description="Hy-MT3 1.8B（Q4_K_M）随应用分发，在本进程内推理；后端与闲置释放的改动在下次启动时生效。">
+                                   Description="Hy-MT3 1.8B（Q4_K_M）随应用分发，在本进程内推理；闲置释放立即生效，推理后端在下次启动时生效。">
                     <arc:SettingsRow Header="推理后端" Description="自动：显卡能用就走显卡，否则用 CPU。显卡后端不可用时会自动回退到 CPU。">
                         <arc:SegmentedControl SelectedValue="{Binding Backend, Mode=TwoWay}"
                                               AutomationProperties.Name="推理后端">

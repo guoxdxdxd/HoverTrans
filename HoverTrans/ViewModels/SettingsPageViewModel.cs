@@ -112,7 +112,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         OnPropertyChanged(nameof(CanUnloadModel));
     }
 
-    /// <summary>Saves the inference backend and the idle timeout, then says when they apply.</summary>
+    /// <summary>Saves the settings; the idle timeout applies at once, the backend at the next start.</summary>
     [RelayCommand]
     private void Save()
     {
@@ -121,8 +121,14 @@ public sealed partial class SettingsPageViewModel : ObservableObject
         settings.IdleUnloadMinutes = (int)Math.Clamp(Math.Round(IdleUnloadMinutes), 0, 120);
         settings.Save();
 
+        var idle = settings.IdleUnloadMinutes > 0
+            ? TimeSpan.FromMinutes(settings.IdleUnloadMinutes)
+            : (TimeSpan?)null;
+        _translation.SetIdleUnload(idle);
+        State.RefreshModelStatus();
+
         IsSaveError = false;
-        SaveStatus = "已保存。推理后端和闲置释放时长在下次启动应用后生效。";
+        SaveStatus = "已保存。闲置释放立即生效；推理后端在下次启动应用后生效。";
     }
 
     /// <summary>Releases the model's memory now; the next translation loads it again.</summary>

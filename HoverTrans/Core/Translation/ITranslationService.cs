@@ -23,4 +23,10 @@ public interface ITranslationService
     /// translation is running.
     /// </summary>
     Task UnloadModelAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Changes how long the model may stay idle before it is released, or null to keep it loaded. Applies
+    /// to a running engine at once, so the settings page does not need a restart for it.
+    /// </summary>
+    void SetIdleUnload(TimeSpan? timeout);
 }

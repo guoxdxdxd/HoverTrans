@@ -166,6 +166,25 @@ public class EngineTests
         Assert.Contains("之后常驻", alwaysLoaded.StatusText);
     }
 
+    /// <summary>
+    /// The idle timeout is not a start-up-only setting any more: saving it retimes a running engine,
+    /// which is what the person expects after moving the slider.
+    /// </summary>
+    [Fact]
+    public void The_idle_timeout_can_change_without_a_restart()
+    {
+        var engine = new HunyuanEngine(new HunyuanEngineOptions(Backend: "cpu", IdleUnload: TimeSpan.FromMinutes(10)));
+        var service = new TranslationService(engine);
+
+        service.SetIdleUnload(TimeSpan.FromMinutes(2));
+        Assert.Equal(TimeSpan.FromMinutes(2), engine.IdleUnload);
+        Assert.Contains("闲置 2 分钟后释放内存", service.StatusText);
+
+        service.SetIdleUnload(null);
+        Assert.Null(engine.IdleUnload);
+        Assert.Contains("之后常驻", service.StatusText);
+    }
+
     [Fact]
     public async Task Releasing_a_model_that_was_never_loaded_does_nothing()
     {
@@ -289,6 +308,9 @@ public class EngineTests
         Assert.Equal(EngineState.NotLoaded, engine.State);
         // The weights are native arenas: disposing them drops private bytes by gigabytes, not megabytes.
         Assert.True(loaded - released > 1024, $"private memory went from {loaded} MB to {released} MB");
+        Assert.True(engine.LastReleasedBytes > 1024L * 1024 * 1024, $"engine reported {engine.LastReleasedBytes} bytes");
+        // The status line has to make the release visible, not just stop saying "loaded".
+        Assert.Contains("已释放约", service.StatusText);
 
         // The assemblies stay on disk, so the next translation loads them again and works.
         var progress = new RecordingProgress();

@@ -222,6 +222,38 @@ public class UpdateCheckerTests
         }
     }
 
+    /// <summary>
+    /// The idle timeout is applied to the live engine when the button is pressed: waiting for a restart
+    /// is exactly the confusion this setting caused in practice.
+    /// </summary>
+    [AvaloniaFact]
+    public void Saving_the_page_retimes_the_running_engine()
+    {
+        var settings = HoverTrans.Settings.AppSettings.Current;
+        var engine = App.Services.GetRequiredService<HoverTrans.Core.Model.HunyuanEngine>();
+        var originalSetting = settings.IdleUnloadMinutes;
+        var originalEngine = engine.IdleUnload;
+        try
+        {
+            var viewModel = new SettingsPageViewModel(
+                App.Services.GetRequiredService<Core.Translation.ITranslationService>(),
+                App.Services.GetRequiredService<AppState>(),
+                App.Services.GetRequiredService<IUpdateChecker>());
+
+            viewModel.IdleUnloadMinutes = 3;
+            viewModel.SaveCommand.Execute(null);
+
+            Assert.Equal(3, settings.IdleUnloadMinutes);
+            Assert.Equal(TimeSpan.FromMinutes(3), engine.IdleUnload);
+        }
+        finally
+        {
+            settings.IdleUnloadMinutes = originalSetting;
+            settings.Save();
+            engine.SetIdleUnload(originalEngine);
+        }
+    }
+
     [AvaloniaFact]
     public async Task Checking_from_the_settings_page_reports_the_newer_version()
     {

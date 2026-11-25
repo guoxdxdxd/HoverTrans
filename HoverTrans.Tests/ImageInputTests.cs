@@ -84,5 +84,9 @@ public class ImageInputTests
         }
 
         public Task UnloadModelAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void SetIdleUnload(TimeSpan? timeout)
+        {
+        }
     }
 }

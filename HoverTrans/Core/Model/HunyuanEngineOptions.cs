@@ -45,7 +45,13 @@ public sealed record HunyuanEngineOptions(
     /// How often to look for an idle engine: a quarter of the timeout, at most every 30 seconds and at
     /// least every second, so a short timeout is still honoured and a long one costs nothing.
     /// </summary>
-    public TimeSpan IdleCheckInterval => IdleUnloadValue is { } value
+    public TimeSpan IdleCheckInterval => CheckIntervalFor(IdleUnloadValue);
+
+    /// <summary>
+    /// The check interval for <paramref name="idleUnload"/>; the engine asks this every tick, so a
+    /// changed setting takes effect without a reload.
+    /// </summary>
+    public static TimeSpan CheckIntervalFor(TimeSpan? idleUnload) => idleUnload is { } value && value > TimeSpan.Zero
         ? TimeSpan.FromSeconds(Math.Clamp(value.TotalSeconds / 4, 1, 30))
         : TimeSpan.FromSeconds(30);
 }

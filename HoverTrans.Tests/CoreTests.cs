@@ -280,6 +280,10 @@ public class CoreTests
         }
 
         public Task UnloadModelAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void SetIdleUnload(TimeSpan? timeout)
+        {
+        }
     }
 
     private sealed class FakeOcrService : IOcrService

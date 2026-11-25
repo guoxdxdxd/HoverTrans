@@ -44,11 +44,17 @@ public sealed class HunyuanEngine : IAsyncDisposable
     private string? _lastError;
     private string _backendName = "cpu";
     private TimeSpan _loadTime;
+    private TimeSpan? _idleUnload;
+    private long _lastReleasedBytes;
     private DateTimeOffset _lastActivity = DateTimeOffset.UtcNow;
     private long _activeRequests;
     private bool _disposed;
 
-    public HunyuanEngine(HunyuanEngineOptions options) => _options = options;
+    public HunyuanEngine(HunyuanEngineOptions options)
+    {
+        _options = options;
+        _idleUnload = options.IdleUnloadValue;
+    }
 
     /// <summary>Raised when <see cref="State"/> changes; may be raised on a worker thread.</summary>
     public event EventHandler? StateChanged;
@@ -65,7 +71,24 @@ public sealed class HunyuanEngine : IAsyncDisposable
     public TimeSpan LoadTime => _loadTime;
 
     /// <summary>How long the weights stay in memory between translations, or null when they never leave.</summary>
-    public TimeSpan? IdleUnload => _options.IdleUnloadValue;
+    public TimeSpan? IdleUnload => _idleUnload;
+
+    /// <summary>How much private memory the last release gave back, or 0 before the first release.</summary>
+    public long LastReleasedBytes => Interlocked.Read(ref _lastReleasedBytes);
+
+    /// <summary>
+    /// Changes the idle timeout of a running engine, so a saved setting applies without a restart.
+    /// </summary>
+    public void SetIdleUnload(TimeSpan? timeout)
+    {
+        _idleUnload = timeout is { } value && value > TimeSpan.Zero ? value : null;
+
+        // A loop that was never started (the timeout used to be "never") has to exist for the new one.
+        if (_state == EngineState.Ready)
+        {
+            StartIdleLoop();
+        }
+    }
 
     /// <summary>Whether a translation is running right now (published for the status line).</summary>
     public bool IsBusy => Interlocked.Read(ref _activeRequests) > 0;
@@ -222,6 +245,7 @@ public sealed class HunyuanEngine : IAsyncDisposable
             TrimWorkingSet();
 
             var privateAfter = Process.GetCurrentProcess().PrivateMemorySize64;
+            Interlocked.Exchange(ref _lastReleasedBytes, Math.Max(0, privateBefore - privateAfter));
             Log($"model released after {idle.TotalMinutes:0.#} min idle, private memory {(privateBefore - privateAfter) / 1024 / 1024} MB returned");
         }
         finally
@@ -277,7 +301,7 @@ public sealed class HunyuanEngine : IAsyncDisposable
 
     private void StartIdleLoop()
     {
-        if (_options.IdleUnloadValue is null || _idleLoop is { IsCompleted: false })
+        if (_idleLoop is { IsCompleted: false })
         {
             return;
         }
@@ -293,9 +317,11 @@ public sealed class HunyuanEngine : IAsyncDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(_options.IdleCheckInterval, cancellationToken).ConfigureAwait(false);
+                // Read both the timeout and the interval every tick: the settings page can change them
+                // while the model is loaded, and that must apply without a restart.
+                await Task.Delay(HunyuanEngineOptions.CheckIntervalFor(_idleUnload), cancellationToken).ConfigureAwait(false);
 
-                if (_options.IdleUnloadValue is not { } timeout
+                if (_idleUnload is not { } timeout
                     || _state != EngineState.Ready
                     || IsBusy
                     || DateTimeOffset.UtcNow - _lastActivity < timeout)
